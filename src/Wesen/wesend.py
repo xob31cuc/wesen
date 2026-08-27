@@ -9,6 +9,8 @@ from os.path import exists
 from pprint import pprint
 
 from .defaults import DEFAULT_GAME_STATE_FILE
+from .replay.recorder import ReplayRecorder
+from .replay.replayer import Replayer
 from .world import World
 
 # TODO change the name of this class (it is not a daemon)
@@ -24,13 +26,33 @@ class Wesend:
     def __init__(self, config):
         """config should be a dictionary (see loader.py),
         extraArgs are all passed to OpenGL"""
+        self.replay_path = config.pop("replay", None)
+        self.verify_replay_path = config.pop("verify_replay", None)
+        self.record_replay_path = config.pop("record_replay", None)
+        self.replayer = None
+        self.recorder = None
+        self.replay_finished = False
         self.infoGui = config["gui"]
+        if self.replay_path or self.verify_replay_path:
+            replay_file = self.replay_path or self.verify_replay_path
+            self.replayer = Replayer(replay_file)
+            self.world = self.replayer.create_world()
+            self.infoWorld = self.world.infoAllWorld["world"]
+            self.infoWesen = self.world.infoAllWorld["wesen"]
+            self.infoFood = self.world.infoAllWorld["food"]
+            self.infoRange = self.world.infoAllWorld["range"]
+            self.infoTime = self.world.infoAllWorld["time"]
+            if self.verify_replay_path:
+                self.infoGui["enable"] = False
+            return
+
         self.infoWorld = config["world"]
         self.infoWesen = config["wesen"]
         self.infoFood = config["food"]
         self.infoRange = config["range"]
         self.infoTime = config["time"]
-        self.infoWesen["sources"] = self.infoWesen["sources"].split(",")
+        if isinstance(self.infoWesen["sources"], str):
+            self.infoWesen["sources"] = self.infoWesen["sources"].split(",")
         self.infoWorld["Debug"] = self.Debug
         infoAllWorld = {
             "world": self.infoWorld,
@@ -48,13 +70,24 @@ class Wesend:
                 self.world.restore(infoAllWorld)
         else:
             self.world = World(infoAllWorld)
+        if self.record_replay_path:
+            self.recorder = ReplayRecorder(
+                self.record_replay_path,
+                metadata={"program": "wesen", "mode": "snapshot"},
+            )
+            self.world.setRecorder(self.recorder)
+            self.recorder.start(self.world)
 
     def start(self, extraArgs=""):
         """starts the simulation (with GUI, if configured)"""
-        if self.infoGui["enable"]:
-            self.initGUI(extraArgs)
-        else:
-            self.main()
+        try:
+            if self.verify_replay_path:
+                return self.verifyReplay()
+            if self.infoGui["enable"]:
+                return self.initGUI(extraArgs)
+            return self.main()
+        finally:
+            self.close()
 
     def initGUI(self, extraArgs):
         """handing over all control to the gui"""
@@ -76,14 +109,27 @@ class Wesend:
         print("debug message: ", message)
 
     def mainLoop(self):
-        """calls world.main() in gui-mode (returns world descriptor)"""
-        self.world.main()
+        """Advance one normal turn or apply one replay frame."""
+        if self.replayer is not None:
+            self.replay_finished = not self.replayer.step(self.world)
+        else:
+            self.world.main()
         return self.world.getDescriptor()
 
     def main(self):
         """calls world.main() in gui-less mode,
         until KeyboardInterrupt
         and prints stats every 1000 turns to show some action"""
+        if self.replayer is not None:
+            while self.replayer.step(self.world):
+                pass
+            self.replay_finished = True
+            print(
+                f"replay completed: {len(self.replayer.frames)} frames "
+                f"through turn {self.world.turns}"
+            )
+            return True
+
         while True:
             try:
                 self.world.main()
@@ -94,3 +140,19 @@ class Wesend:
             if (self.world.turns % 1000) == 0:
                 print("turn", self.world.turns, "stats:")
                 pprint(self.world.stats, indent=3, depth=4, width=80)
+
+    def verifyReplay(self):
+        """Verify every replay frame and report the first mismatch."""
+        if self.replayer is None:
+            raise RuntimeError("cannot verify a replay without a replay file")
+        result = self.replayer.verify()
+        print(result.message)
+        if not result.ok and result.expected is not None:
+            print(f"expected: {result.expected}")
+            print(f"actual:   {result.actual}")
+        return result.ok
+
+    def close(self):
+        """Flush and close resources owned by this simulation runner."""
+        if self.recorder is not None:
+            self.recorder.close()

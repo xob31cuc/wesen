@@ -28,10 +28,10 @@ lib64
 m*.png
 screenshot.png
 
-#emacs backup
+# emacs backup
 *~
 
-#ropemacs
+# ropemacs
 .ropeproject
 
 debug.out
@@ -40,8 +40,18 @@ profile.stats_before
 # Pylance
 uv.lock
 
-#Mac
+# Mac
 .DS_Store
 
-#fuer mein PyCharm
+# fuer mein PyCharm
 .idea/
+
+# Python version
+.python-version
+
+# Pytest-Gremlins cache
+.gremlins_cache/
+
+# Coverage
+.coverage*
+coverage/

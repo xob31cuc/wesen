@@ -21,7 +21,10 @@ class Food(WorldObject):
         self.maxage = self.infoObject["maxage"]
 
     def __repr__(self):
-        return f"<food id={id(self)} growrate={self.growrate} pos={self.position} energy={self.energy}>"
+        return (
+            f"<food sim_id={self.sim_id} growrate={self.growrate} "
+            f"pos={self.position} energy={self.energy}>"
+        )
 
     def getDescriptor(self):
         """currently doing nothing than returning the WorldObjects getDescriptor."""
@@ -70,7 +73,14 @@ class Food(WorldObject):
             self.position, self.rangeseed, self.infoWorld["length"]
         )
         newFood = self.AddObject(infoFood)
+        state_before_merge = newFood.persist() if self.recorder is not None else None
         newFood._eatFoodAtSamePlace()
+        if self.recorder is not None and state_before_merge is not None:
+            self.recorder.record_state_changes(
+                {newFood.sim_id: state_before_merge},
+                self.worldObjects,
+                self.getTurn(),
+            )
         return newFood
 
     def _AgeCheck(self):
@@ -100,13 +110,14 @@ class Food(WorldObject):
         return False
 
     def _eatFoodAtSamePlace(self):
-        """looks for Food with same position but different id than self and eats it."""
+        """Eat Food at the same position whose id differs from this Food's."""
         for obj in [
-            obj  # implemented with range iterator to enable changing range to 1 or more later
+            # The range iterator allows increasing this radius later.
+            obj
             for oid, obj in self.getRangeIterator(
                 0, condition=lambda o: o.objectType == "food"
             )
-            if oid != id(self)
+            if oid != self.sim_id
         ]:
             self.energy += obj.getEaten()
 

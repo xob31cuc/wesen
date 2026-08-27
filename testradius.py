@@ -98,18 +98,18 @@ def python_abs_max(p, q, radius):
 
 
 def numpy_abs(p, q, radius):
-    return (numpyabs(p[0] - q[0]) <= radius) and (
-        numpyabs(p[1] - q[1]) <= radius
-    )
+    return (numpyabs(p[0] - q[0]) <= radius) and (numpyabs(p[1] - q[1]) <= radius)
 
 
 def numpy_abs_vector(p, q, radius):
-    return max(numpyabs([cp - cq for cp, cq in zip(p, q)])) <= radius
+    return max(numpyabs([cp - cq for cp, cq in zip(p, q, strict=True)])) <= radius
 
 
 def numpy_linalg_norm(p, q, radius):
     return (
-        numpylinalgnorm([cp - cq for cp, cq in zip(p, q)], ord=maxmetric)
+        numpylinalgnorm(
+            [cp - cq for cp, cq in zip(p, q, strict=True)], ord=maxmetric
+        )
         <= radius
     )
 
@@ -178,9 +178,7 @@ def test_sophisticated():
 def test_times():
     number = 200000
     repeat = 10
-    print(
-        "testing", repeat, "times", number, "calls of each implementation"
-    )
+    print("testing", repeat, "times", number, "calls of each implementation")
     setup = (
         "import testradius;"
         + "values=testradius.some_values();"
@@ -196,14 +194,12 @@ def test_times():
     for funcname, values in executionStack.items():
         stmt = "testradius." + funcname + values
         min_time = min(
-            timeit_repeat(
-                stmt=stmt, setup=setup, number=number, repeat=repeat
-            )
+            timeit_repeat(stmt=stmt, setup=setup, number=number, repeat=repeat)
         )
         results.append((funcname, min_time * 1000))
-    print("%26s -- time consumption in milliseconds" % ("implementation"))
+    print(f"{'implementation':>26s} -- time consumption in milliseconds")
     for result in sorted(results, key=lambda r: r[1]):
-        print("%26s -- %5.0f" % result)
+        print(f"{result[0]:>26s} -- {result[1]:5.0f}")
 
 
 if __name__ == "__main__":

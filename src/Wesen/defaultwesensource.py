@@ -1,8 +1,29 @@
 """defines an interface for AI code"""
 
+from collections.abc import Callable, Sequence
+from typing import Any
+
 
 class DefaultWesenSource:
     """each AI code should subclass this class."""
+
+    # Wesen.PutInterface supplies these callables after source construction.
+    id: Callable[[], int]
+    age: Callable[[], int]
+    position: Callable[[], list[int]]
+    energy: Callable[[], int]
+    time: Callable[[], int]
+    look: Callable[[], list[dict[str, Any]]]
+    closerLook: Callable[[], list[dict[str, Any]]]
+    Move: Callable[[Sequence[int | float]], bool]
+    MoveToPosition: Callable[[Sequence[int | float]], bool]
+    Talk: Callable[[int, Any], bool]
+    Eat: Callable[[int], bool]
+    Reproduce: Callable[[], int]
+    Attack: Callable[[int], bool]
+    Vomit: Callable[[int], bool]
+    Donate: Callable[[int, int], bool]
+    Broadcast: Callable[[Any], bool]
 
     def __init__(self, infoAllSource):
         """links a few variables to infoAllSource contents."""
@@ -35,6 +56,4 @@ class DefaultWesenSource:
 
     def main(self):
         """called every turn"""
-        raise NotImplementedError(
-            "Every Wesen Source (AI code) needs a main method"
-        )
+        raise NotImplementedError("Every Wesen Source (AI code) needs a main method")

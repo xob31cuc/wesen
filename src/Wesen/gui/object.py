@@ -1,6 +1,17 @@
 """Each object in the GUI that gets real estate is a GuiObject"""
 
+from typing import TypedDict
+
 from OpenGL.GL import glColor3f, glRectf
+
+
+class FrameData(TypedDict):
+    frame: float
+    color: list[float]
+    plastic: float
+    aspect: float
+    x: float
+    y: float
 
 
 class GuiObject:
@@ -8,7 +19,7 @@ class GuiObject:
 
     def __init__(self, gui):
         self.gui = gui
-        self.frame = {
+        self.frame: FrameData = {
             "frame": 0.003,  # ???
             "color": [0.75, 0.75, 0.75],  # base color
             "plastic": 0.5,  # thickness of the frame

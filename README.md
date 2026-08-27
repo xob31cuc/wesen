@@ -26,3 +26,21 @@ uv venv
 uv sync
 uv run wesen
 ```
+
+Replay
+=====
+
+Wesen can record a normal run as human-readable JSON Lines. The replay stores
+the initial state, detailed action/effect events, and a complete state frame
+plus verification hash after every turn.
+
+```sh
+uv run wesen --record-replay run.jsonl
+uv run wesen --replay run.jsonl
+uv run wesen --replay run.jsonl --disablegui
+uv run wesen --verify-replay run.jsonl
+```
+
+Playback restores recorded snapshots and never runs Wesen source AI logic.
+Verification is non-GUI and exits unsuccessfully on the first corrupt frame,
+printing its turn and expected/actual hashes.

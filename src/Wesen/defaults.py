@@ -6,25 +6,29 @@ or see strings.py"""
 
 from os.path import expanduser, join
 
+type ConfigValue = str | int | bool | float
+type ConfigEntryType = type[str] | type[int] | type[bool] | type[float]
+
 DEFAULT_CONFIGFOLDER = join(expanduser("~"), ".wesen")
 DEFAULT_CONFIGFILE = join(DEFAULT_CONFIGFOLDER, "conf")
 # TODO enable command-line option for filename
 DEFAULT_GAME_STATE_FILE = join(DEFAULT_CONFIGFOLDER, "gamestate")
 # this configfile is _always_ used before any other specified!
-# these default values are used in configed for the defaults in the editor and when no values are specified in the configfile.
+# these default values are used in configed for the defaults in the editor and
+# when no values are specified in the configfile.
 # We recommend to use the calculated values as they are.
 # For an explanation of these values,
 # run the config editor (with wesen --editconfig)
 
 # HINT: While the following could be inferred from the defaults below,
 #      It adds a lot of clarity to have it explicitly.
-CONFIG_OPTIONS = [
-    [
+CONFIG_OPTIONS: list[tuple[str, list[tuple[str, ConfigEntryType]]]] = [
+    (
         "gui",
         [("enable", bool), ("source", str), ("size", int), ("pos", str)],
-    ],  # x,y
-    ["world", [("length", int)]],
-    [
+    ),  # x,y
+    ("world", [("length", int)]),
+    (
         "wesen",
         [
             ("sources", str),  # comma-separated
@@ -32,8 +36,8 @@ CONFIG_OPTIONS = [
             ("energy", int),
             ("maxage", int),
         ],
-    ],
-    [
+    ),
+    (
         "food",
         [
             ("count", int),
@@ -43,8 +47,8 @@ CONFIG_OPTIONS = [
             ("growrate", float),  # in percent
             ("seedrate", float),
         ],
-    ],  # in percent
-    [
+    ),  # in percent
+    (
         "range",
         [
             ("look", int),
@@ -52,8 +56,8 @@ CONFIG_OPTIONS = [
             ("talk", int),
             ("seed", int),
         ],
-    ],
-    [
+    ),
+    (
         "time",
         [
             ("init", int),
@@ -69,10 +73,10 @@ CONFIG_OPTIONS = [
             ("donate", int),
             ("reproduce", int),
         ],
-    ],
+    ),
 ]
 
-CONFIG_DEFAULTS = {
+CONFIG_DEFAULTS: dict[str, dict[str, ConfigValue]] = {
     "gui": {"enable": True, "source": "gui", "size": 500, "pos": "50,50"},
     "world": {"length": 500},
     "wesen": {

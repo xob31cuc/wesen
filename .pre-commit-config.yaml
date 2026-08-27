@@ -1,0 +1,83 @@
+repos:
+  # General repository hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-added-large-files
+
+  # Ruff: linter first, formatter second
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.4
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+
+      - id: ruff-format
+
+  # pyproject.toml formatter
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: v2.28.1
+    hooks:
+      - id: pyproject-fmt
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+      - id: mypy
+        args:
+          - --config-file=pyproject.toml
+          - src
+        pass_filenames: false
+
+        # Required if deal.mypy is configured.
+        # Also add third-party packages / stubs here if mypy needs them.
+        additional_dependencies:
+          - deal
+          - numpy
+          - Pillow>=12.2.0
+          - structlog>=25.4.0
+
+  # Dependency checking
+  - repo: https://github.com/tweag/FawltyDeps
+    rev: v0.20.0
+    hooks:
+      - id: check-undeclared
+        args: [--code, .]
+        pass_filenames: false
+      - id: check-unused
+        args: [--deps, pyproject.toml]
+        pass_filenames: false
+
+  # Deal static contract checking
+  - repo: local
+    hooks:
+      - id: deal-lint
+        name: deal lint
+        entry: python -m deal lint
+        language: python
+        additional_dependencies:
+          - deal
+        types: [python]
+
+      # Full tests are pre-push, not pre-commit.
+      - id: pytest
+        name: pytest via nox
+        entry: nox -s tests -- -q -x
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      # CrossHair is also comparatively expensive.
+      - id: crosshair
+        name: CrossHair contract analysis
+        entry: nox -s crosshair
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

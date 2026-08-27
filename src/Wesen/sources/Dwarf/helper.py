@@ -2,8 +2,10 @@ from numpy.random import randint, uniform
 
 from ...point import getDistInMaxMetric
 
-# TODO try to extract a sensible helper.py and move some of this back to the main source...
-# TODO change most magic numbers to something computed from the game's time constraints
+# TODO try to extract a sensible helper.py and move some of this back to the
+# main source.
+# TODO change most magic numbers to something computed from the game's time
+# constraints
 #     like food growth, moving time, etc.
 
 
@@ -20,10 +22,7 @@ def recoverAge(self):
 def CatchTarget(self, Action, actionTime):
     targ = self.target
     if self.MoveToPosition(targ["position"]):
-        if (
-            targ["position"] == self.position()
-            and self.time() >= actionTime
-        ):
+        if targ["position"] == self.position() and self.time() >= actionTime:
             self.target = None
             if Action(self, targ):
                 return True
@@ -48,9 +47,7 @@ def AttackTarget(self):
     return CatchTarget(self, AttackObject, self.infoTime["attack"] + 1)
 
 
-def lookForTarget(
-    self, lookRange, objectType, objectCondition, objectFitness
-):
+def lookForTarget(self, lookRange, objectType, objectCondition, objectFitness):
     # TODO now ignores objectFitness, uses positionFitness instead;
     matchingObjects = [
         o
@@ -113,25 +110,19 @@ def enemyFitness(a):
 def lookForFoodTarget(self, lookRange=None):
     if not lookRange:
         lookRange = self.closerLook()
-    return lookForTarget(
-        self, lookRange, "food", acceptableFood, foodFitness
-    )
+    return lookForTarget(self, lookRange, "food", acceptableFood, foodFitness)
 
 
 def lookForEnemyTarget(self, lookRange=None):
     if not lookRange:
         lookRange = self.closerLook()
-    return lookForTarget(
-        self, lookRange, "wesen", acceptableEnemy, enemyFitness
-    )
+    return lookForTarget(self, lookRange, "wesen", acceptableEnemy, enemyFitness)
 
 
 def lookForThreat(self, lookRange=None):
     if not lookRange:
         lookRange = self.closerLook()
-    return lookForTarget(
-        self, lookRange, "wesen", threateningEnemy, enemyFitness
-    )
+    return lookForTarget(self, lookRange, "wesen", threateningEnemy, enemyFitness)
 
 
 def lookAtYoungGarden(self, lookRange=None):
@@ -167,13 +158,13 @@ def ScannerMove(self, scanVector=(1, 0), scanSpeed=3, randomization=0.2):
 
 
 def Flee(self):
-    for i in range(0, 5):
+    for _i in range(0, 5):
         ScannerMove(
             self,
             scanVector=[
                 -1 * (tc - pc)
                 for (tc, pc) in zip(
-                    self.target["position"], self.position()
+                    self.target["position"], self.position(), strict=True
                 )
             ],
         )
@@ -181,8 +172,8 @@ def Flee(self):
 
 def seedOut(self):
     newFoodObjects = []
-    for i in range(0, 3):
+    for _i in range(0, 3):
         newFoodObjects.append(self.Vomit(1))
-        for j in range(0, 4):
+        for _j in range(0, 4):
             DrunkenSailor(self)
     return newFoodObjects

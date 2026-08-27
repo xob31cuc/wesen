@@ -14,10 +14,7 @@ def recoverAge(self):
 def CatchTarget(self, Action, actionTime):
     result = False
     self.MoveToPosition(self.target["position"])
-    if (
-        self.target["position"] == self.position()
-        and self.time() >= actionTime
-    ):
+    if self.target["position"] == self.position() and self.time() >= actionTime:
         result = Action(self, self.target)
         if not result:
             if self.target["id"] not in self.forbiddenTargets:
@@ -42,9 +39,7 @@ def AttackTarget(self):
     return CatchTarget(self, AttackObject, self.infoTime["eat"] + 1)
 
 
-def lookForTarget(
-    self, lookRange, objectType, objectCondition, objectFitness
-):
+def lookForTarget(self, lookRange, objectType, objectCondition, objectFitness):
     matchingObjects = []
     for object in lookRange:
         if object["type"] == objectType:
@@ -62,9 +57,7 @@ def lookForTarget(
 def acceptableFood(self, object):
     if object["energy"] >= self.minimumEnergyToEat:
         if object["id"] in self.forbiddenTargets:
-            del self.forbiddenTargets[
-                self.forbiddenTargets.index(object["id"])
-            ]
+            del self.forbiddenTargets[self.forbiddenTargets.index(object["id"])]
         return True
     else:
         return False
@@ -80,11 +73,7 @@ def acceptableEnemy(self, object):
             return True
         else:
             self.minimumEnergyToFight = int(
-                (
-                    (self.energy() + self.minimumEnergyToFight)
-                    + object["energy"]
-                )
-                / 2
+                ((self.energy() + self.minimumEnergyToFight) + object["energy"]) / 2
             )
             return False
     else:
@@ -98,17 +87,13 @@ def enemyFitness(a):
 def lookForFoodTarget(self, lookRange=None):
     if not lookRange:
         lookRange = self.closerLook()
-    return lookForTarget(
-        self, lookRange, "food", acceptableFood, foodFitness
-    )
+    return lookForTarget(self, lookRange, "food", acceptableFood, foodFitness)
 
 
 def lookForEnemyTarget(self, lookRange=None):
     if not lookRange:
         lookRange = self.closerLook()
-    return lookForTarget(
-        self, lookRange, "wesen", acceptableEnemy, enemyFitness
-    )
+    return lookForTarget(self, lookRange, "wesen", acceptableEnemy, enemyFitness)
 
 
 def HandleTarget(self):

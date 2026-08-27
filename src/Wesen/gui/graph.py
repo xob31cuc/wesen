@@ -70,7 +70,7 @@ class Graph(GuiObject):
 
     def _AddObjectEnergySensors(self, sourceList, colorList):
         """adds a sensor for each source's energy."""
-        for wesenSource, color in zip(sourceList, colorList):
+        for wesenSource, color in zip(sourceList, colorList, strict=False):
             self.AddSensor(
                 {
                     "f": SENSORFCT_FROMSTATS_ENERGY,
@@ -96,10 +96,8 @@ class Graph(GuiObject):
 
     def Step(self):
         """adds current world.stats as data point to all sensors."""
-        for sensorInfo, data in zip(self.sensors, self.history):
-            data.AddValue(
-                sensorInfo["f"](self.world)(sensorInfo["statskey"])
-            )
+        for sensorInfo, data in zip(self.sensors, self.history, strict=True):
+            data.AddValue(sensorInfo["f"](self.world)(sensorInfo["statskey"]))
         self.maxValue = max(
             self.maxValue, max(data.maxValue for data in self.history)
         )
@@ -113,7 +111,7 @@ class Graph(GuiObject):
         # Probably this stuff should be done in GuiObject!
         glTranslatef(0.005, 0.01, 0.0)
         glScalef(0.99 / self.resolution, 0.7 / self.maxValue, 1.0)
-        for sensorInfo, data in zip(self.sensors, self.history):
+        for sensorInfo, data in zip(self.sensors, self.history, strict=True):
             glColor3f(*(sensorInfo["color"]))
             data.Draw()
         glPopMatrix()
@@ -164,9 +162,9 @@ class _SensorData:
             self.buffer_full = True
         self.previous_index = (self.previous_index + 1) % self.size
         self.buf[self.previous_index * 2 + 1] = value
-        self.vbo[
-            self.previous_index * 2 + 1 : self.previous_index * 2 + 2
-        ] = narray([value], "f")
+        self.vbo[self.previous_index * 2 + 1 : self.previous_index * 2 + 2] = narray(
+            [value], "f"
+        )
         self.maxValue = max(self.maxValue, value)
 
     def Draw(self):

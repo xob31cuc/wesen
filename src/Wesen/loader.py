@@ -55,15 +55,22 @@ def Loader(run_immediately=True):
         for section, sectionDict in parsedArgs._config.items():
             config[section].update(sectionDict)
     config["resume"] = parsedArgs.resume
+    config["record_replay"] = parsedArgs.record_replay
+    config["replay"] = parsedArgs.replay
+    config["verify_replay"] = parsedArgs.verify_replay
     if len(extraArgs) > 0:
         print(
             "handing over the following command-line arguments to OpenGL: ",
             " ".join(extraArgs),
         )
-    _checkSourcesAvailability(config["wesen"]["sources"])
+    if not (parsedArgs.replay or parsedArgs.verify_replay):
+        _checkSourcesAvailability(config["wesen"]["sources"])
     wesend = Wesend(config)
     if run_immediately:
-        wesend.start()
+        success = wesend.start(" ".join(extraArgs))
+        if parsedArgs.verify_replay and not success:
+            raise SystemExit(1)
+        return None
     return wesend
 
 
@@ -136,6 +143,22 @@ def _parseArgs():
         default=False,
         help=STRING_USAGE_RESUME,
     )
+    replay_group = parser.add_mutually_exclusive_group()
+    replay_group.add_argument(
+        "--record-replay",
+        metavar="PATH",
+        help="record this simulation as a JSON Lines replay",
+    )
+    replay_group.add_argument(
+        "--replay",
+        metavar="PATH",
+        help="replay snapshots from a JSON Lines replay",
+    )
+    replay_group.add_argument(
+        "--verify-replay",
+        metavar="PATH",
+        help="verify all replay frame hashes without a GUI",
+    )
     return parser.parse_known_args()
 
 
@@ -165,9 +188,10 @@ def _checkSourcesAvailability(sourcesList):
     sources = sourcesList.split(",")
     for source in sources:
         try:
-            importlib.import_module(
+            module = importlib.import_module(
                 ".sources." + source + ".main", __package__
-            ).WesenSource
+            )
+            _ = module.WesenSource
         except ImportError as e:
             print(e)
             print(

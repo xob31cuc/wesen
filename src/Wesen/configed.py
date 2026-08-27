@@ -5,10 +5,10 @@ See also:
  strings.py for explanations used here,
  defaults.py for defaults used here."""
 
-# import the correct version of ConfigParser:
-from sys import version_info
+import os.path
+from configparser import ConfigParser
 
-from .defaults import CONFIG_DEFAULTS, CONFIG_OPTIONS
+from .defaults import CONFIG_DEFAULTS, CONFIG_OPTIONS, ConfigValue
 from .strings import (
     STRING_CONFIGED,
     STRING_ERROR_FILEEXISTS,
@@ -16,20 +16,13 @@ from .strings import (
     STRING_MESSAGE_WROTE,
 )
 
-if version_info.major == 3 and version_info.minor < 2:  # pre version 3.2
-    from configparser import SafeConfigParser
-else:  # up to date version
-    from configparser import ConfigParser as SafeConfigParser
-
-import os.path
-
 
 class ConfigEd:
     """ConfigEd(filename) creates a full powered config editor for wesen"""
 
     def __init__(self, filename):
         self.configfile = filename
-        self.configParser = SafeConfigParser()
+        self.configParser = ConfigParser()
         self.alwaysDefaults = False
 
     def printConfig(self):
@@ -48,17 +41,15 @@ class ConfigEd:
         """
         if os.path.exists(self.configfile):
             self.configParser.read(self.configfile)
-            result = {}
+            result: dict[str, dict[str, ConfigValue]] = {}
             for entry in CONFIG_OPTIONS:
                 section, options = entry
                 result[section] = {}
                 if self.configParser.has_section(section):
                     for option in options:
                         key, entryType = option
-                        result[section][key] = (
-                            self.getEntryFromConfigParser(
-                                section, key, entryType
-                            )
+                        result[section][key] = self.getEntryFromConfigParser(
+                            section, key, entryType
                         )
             return result
         else:
@@ -68,14 +59,14 @@ class ConfigEd:
     def getEntryFromConfigParser(self, section, key, entryType):
         """depending on entryType,
         calls the appropriate getter from self.configParser"""
-        value = None
-        if entryType == str:
+        value: ConfigValue | None = None
+        if entryType is str:
             value = self.configParser.get(section, key)
-        elif entryType == int:
+        elif entryType is int:
             value = self.configParser.getint(section, key)
-        elif entryType == bool:
+        elif entryType is bool:
             value = self.configParser.getboolean(section, key)
-        elif entryType == float:
+        elif entryType is float:
             value = self.configParser.getfloat(section, key)
         if value is None:
             value = CONFIG_DEFAULTS[section][key]
@@ -123,11 +114,7 @@ class ConfigEd:
         self.configParser.set(
             section,
             key,
-            str(
-                self.def_input(
-                    CONFIG_DEFAULTS[section][key], explanationString
-                )
-            ),
+            str(self.def_input(CONFIG_DEFAULTS[section][key], explanationString)),
         )
 
     def def_input(self, default, msg):

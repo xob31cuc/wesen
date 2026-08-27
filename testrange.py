@@ -60,7 +60,6 @@ from sys import argv
 from timeit import repeat as timeit_repeat
 
 from numpy.random import randint
-
 from src.Wesen.loader import Loader
 
 
@@ -86,9 +85,7 @@ def getRangeIterator_3(objectIterator, position, radius, condition=None):
         (i, o)
         for (i, o, px, py) in (
             (i, o, p[0], p[1])
-            for (i, o, p) in (
-                (i, o, o.position) for (i, o) in objectIterator
-            )
+            for (i, o, p) in ((i, o, o.position) for (i, o) in objectIterator)
         )
         if (abs(x - px) <= radius and abs(y - py) <= radius)
     )
@@ -108,10 +105,7 @@ def getRangeIterator_1(objectIterator, position, radius, condition=None):
     return (
         (i, o)
         for (i, o) in objectIterator
-        if (
-            abs(x - o.position[0]) <= radius
-            and abs(y - o.position[1]) <= radius
-        )
+        if (abs(x - o.position[0]) <= radius and abs(y - o.position[1]) <= radius)
     )
 
 
@@ -128,9 +122,7 @@ def getRangeIterator_1_c(objectIterator, position, radius, condition=None):
     )
 
 
-def getRangeIterator_1_c_force(
-    objectIterator, position, radius, condition
-):
+def getRangeIterator_1_c_force(objectIterator, position, radius, condition):
     x, y = position
     return (
         (i, o)
@@ -143,9 +135,7 @@ def getRangeIterator_1_c_force(
     )
 
 
-def getRangeIterator_1_c_force_strongly(
-    objectIterator, position, radius, condition
-):
+def getRangeIterator_1_c_force_strongly(objectIterator, position, radius, condition):
     # XXX does not work with condition=None!
     x, y = position
     return (
@@ -159,9 +149,7 @@ def getRangeIterator_1_c_force_strongly(
     )
 
 
-def getRangeIterator_1_c_last(
-    objectIterator, position, radius, condition=None
-):
+def getRangeIterator_1_c_last(objectIterator, position, radius, condition=None):
     x, y = position
     return (
         (i, o)
@@ -243,9 +231,7 @@ def test_sophisticated():
 def test_times_generic(setup):
     number = TEST_NUMBER
     repeat = TEST_REPEAT
-    print(
-        "testing", repeat, "times", number, "calls of each implementation"
-    )
+    print("testing", repeat, "times", number, "calls of each implementation")
     executionStack = {}
     results = []
     for func in TEST_THESE:
@@ -253,14 +239,12 @@ def test_times_generic(setup):
     for funcname, values in executionStack.items():
         stmt = "list(testrange." + funcname + values + ")"
         min_time = min(
-            timeit_repeat(
-                stmt=stmt, setup=setup, number=number, repeat=repeat
-            )
+            timeit_repeat(stmt=stmt, setup=setup, number=number, repeat=repeat)
         )
         results.append((funcname, min_time * 1000))
-    print("%40s -- time consumption in milliseconds" % ("implementation"))
+    print(f"{'implementation':>40s} -- time consumption in milliseconds")
     for result in sorted(results, key=lambda r: r[1]):
-        print("%40s -- %5.0f" % result)
+        print(f"{result[0]:>40s} -- {result[1]:5.0f}")
 
 
 def test_times():

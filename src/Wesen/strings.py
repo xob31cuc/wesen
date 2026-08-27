@@ -7,7 +7,9 @@ from .defaults import DEFAULT_CONFIGFILE, DEFAULT_GAME_STATE_FILE
 VERSIONSTRING = "wesen 0.6.0-alpha"
 URL = "https://github.com/reims/wesen"
 
-STRING_ERROR_NOTSAMEPATH = "There is a path problem. The program could not find the desired files."
+STRING_ERROR_NOTSAMEPATH = (
+    "There is a path problem. The program could not find the desired files."
+)
 STRING_ERROR_FILEEXISTS = "file %s already exists, overwrite? (y, n) "
 STRING_ERROR_NOTWROTE = "didn't write file %s"
 
@@ -20,7 +22,9 @@ STRING_MESSAGE_REMOVED = "removed file %s"
 STRING_CONFIGED = {
     "WESEN": {
         "SOURCES": "(comma-seperated wesen sources)\nsources=",
-        "COUNT": "(how much wesen are created during startup from each source)\ncount=",
+        "COUNT": (
+            "(how much wesen are created during startup from each source)\ncount="
+        ),
         "ENERGY": "(starting energy of every wesen at the beginning)\nenergy=",
         "MAXAGE": "(maximum age of wesen until they die)\nmaxage=",
     },
@@ -30,9 +34,7 @@ STRING_CONFIGED = {
         "SIZE": "\nsize=",
         "POS": "\npos=",
     },
-    "WORLD": {
-        "LENGTH": "(length of the worlds x-axis and y-axis)\nlength="
-    },
+    "WORLD": {"LENGTH": "(length of the worlds x-axis and y-axis)\nlength="},
     "FOOD": {
         "COUNT": "(how many food places at start)\ncount=",
         "ENERGY": "(starting energy of every food place at the beginning)\namount=",
@@ -75,7 +77,5 @@ STRING_USAGE_PRINTCONFIG = (
     "print the config (without changes from command-line options)"
 )
 STRING_USAGE_OVERWRITE = "overwrite config [%s] %s"
-STRING_USAGE_RESUME = (
-    f"resumes game stored in {DEFAULT_GAME_STATE_FILE} if exists"
-)
+STRING_USAGE_RESUME = f"resumes game stored in {DEFAULT_GAME_STATE_FILE} if exists"
 STRING_USAGE_EPILOG = "all other arguments are passed to OpenGL"

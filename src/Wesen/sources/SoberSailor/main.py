@@ -3,11 +3,12 @@ the sober sailor is a smarter implementation of drunken sailor.
 it searches food instead of only walking randomly.
 """
 
-from ...defaultwesensource import DefaultWesenSource
 from random import choice
 
-class WesenSource(DefaultWesenSource):
+from ...defaultwesensource import DefaultWesenSource
 
+
+class WesenSource(DefaultWesenSource):
     def __init__(self, infoAllSource):
         DefaultWesenSource.__init__(self, infoAllSource)
         self.randRange = [-1, 0, 1]
@@ -26,26 +27,25 @@ class WesenSource(DefaultWesenSource):
     def main(self):
         while self.time() > self.minimalTime:
             lookRange = self.closerLook()
+            position = self.position()
 
             foodHere = [
-                obj for obj in lookRange
-                if obj["type"] == "food" and obj["position"] == self.position
+                obj
+                for obj in lookRange
+                if obj["type"] == "food" and obj["position"] == position
             ]
 
             if foodHere:
                 self.Eat(foodHere[0]["id"])
                 continue
 
-            foods = [
-                obj for obj in lookRange
-                if obj["type"] == "food"
-            ]
+            foods = [obj for obj in lookRange if obj["type"] == "food"]
 
             if foods:
                 # Nimm das erste Food, was auf dem Weg ist
                 food = foods[0]
-                dx = food["position"][0] - self.position[0]
-                dy = food["position"][1] - self.position[1]
+                dx = food["position"][0] - position[0]
+                dy = food["position"][1] - position[1]
 
                 # Immer geradeaus laufen
                 if abs(dx) > abs(dy):

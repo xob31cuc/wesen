@@ -52,7 +52,7 @@ class GUI(BasicGUI):
         if action == "delete":  # FIXME broken?
             for o in self.world.objects.values():
                 if o.objectType == "food":
-                    if self.world.DeleteObject(id(o)):
+                    if self.world.DeleteObject(o.sim_id):
                         break
         if action == "add":  # FIXME broken?
             infoFood = self.infoFood
@@ -89,9 +89,7 @@ class GUI(BasicGUI):
         elif action == 100:
             self.Pause()
         else:
-            raise NotImplementedError(
-                f"unknown action from popup-menu ({action})"
-            )
+            raise NotImplementedError(f"unknown action from popup-menu ({action})")
         return 0
 
     def initKeyBindings(self):
@@ -110,21 +108,13 @@ class GUI(BasicGUI):
         )
         self._generateKeyExplanations()
         self.keyExplanation = {
-            self._getKeyRepresentation(key): str(
-                self.keybindings[key].__doc__
-            )
+            self._getKeyRepresentation(key): str(self.keybindings[key].__doc__)
             for key in self.keybindings
         }
-        self.keyExplanation[self._getKeyRepresentation(100)] = (
-            "delete food"
-        )
-        self.keyExplanation[self._getKeyRepresentation(101)] = (
-            "increase food"
-        )
+        self.keyExplanation[self._getKeyRepresentation(100)] = "delete food"
+        self.keyExplanation[self._getKeyRepresentation(101)] = "increase food"
         self.keyExplanation[self._getKeyRepresentation(102)] = "add food"
-        self.keyExplanation[self._getKeyRepresentation(103)] = (
-            "decrease food"
-        )
+        self.keyExplanation[self._getKeyRepresentation(103)] = "decrease food"
 
     def ToggleMovie(self):
         """Toggle movie mode on/off. In movie mode, each frame is saved to disk."""
@@ -142,19 +132,17 @@ class GUI(BasicGUI):
         width, height = self.windowSize
         buffer = (GLubyte * (3 * width * height))(0)
         glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer)
-        image = Image.frombytes(
-            mode="RGB", size=(width, height), data=buffer
-        )
+        image = Image.frombytes(mode="RGB", size=(width, height), data=buffer)
         # use image coordinates, not OpenGL coordinates:
-        image = image.transpose(Image.FLIP_TOP_BOTTOM)
+        image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
         # take only the Map part of the screenshot:
         image = image.crop((0, 0, width // 2, height // 2))
         # resize to a uniform format (important for movie mode):
-        image = image.resize((800, 800), Image.LANCZOS)
+        image = image.resize((800, 800), Image.Resampling.LANCZOS)
         return image
 
     def RenderScene(self):
         """draws the actual descriptor"""
         BasicGUI.RenderScene(self)
         if self.movieMode:
-            self.takeScreenshot().save("m%08d.png" % (self.turns))
+            self.takeScreenshot().save(f"m{self.world.turns:08d}.png")

@@ -1,8 +1,8 @@
 """The basic OpenGL GUI code"""
 
-import os
 import sys
 import traceback
+from typing import Any
 
 # TODO Error checking should be a config option.
 import OpenGL
@@ -25,6 +25,8 @@ from OpenGL.GL import (
     glViewport,
 )
 from OpenGL.GLUT import (
+    GLUT_ACTION_GLUTMAINLOOP_RETURNS,
+    GLUT_ACTION_ON_WINDOW_CLOSE,
     GLUT_DOUBLE,
     GLUT_ELAPSED_TIME,
     GLUT_RGB,
@@ -41,11 +43,9 @@ from OpenGL.GLUT import (
     glutMouseFunc,
     glutPostRedisplay,
     glutReshapeFunc,
+    glutSetOption,
     glutSpecialFunc,
     glutSwapBuffers,
-    glutSetOption,
-    GLUT_ACTION_ON_WINDOW_CLOSE,
-    GLUT_ACTION_GLUTMAINLOOP_RETURNS
 )
 
 from ..strings import VERSIONSTRING
@@ -78,9 +78,7 @@ class BasicGUI:
     There are three components: Map, Graph and Text.
     """
 
-    def __init__(
-        self, infoGUI, GameLoop, world, extraArgs, colorList=cl_default
-    ):
+    def __init__(self, infoGUI, GameLoop, world, extraArgs, colorList=cl_default):
         """infoGUI should be a dict,
         GameLoop a method,
         world a World object and
@@ -112,7 +110,7 @@ class BasicGUI:
         self.initx = int(initxy[: initxy.index(",")])
         self.inity = int(initxy[initxy.index(",") + 1 :])
         # TODO maybe repair step feature
-        self.descriptor = [{}, []]
+        self.descriptor: list[Any] = [{}, []]
         self.bgcolor = [0.0, 0.0, 0.05]
         self.fgcolor = [0.0, 0.1, 0.2]
         self.colorList = colorList * int(
@@ -145,9 +143,14 @@ class BasicGUI:
         glutInitWindowSize(self.size, self.size)
         glutInitWindowPosition(self.initx, self.inity)
         glutInit(extraArgs.split(" "))
+
         glutCreateWindow(VERSIONSTRING.encode("ascii"))
         if bool(glutSetOption):
-            glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS)
+            glutSetOption(
+                GLUT_ACTION_ON_WINDOW_CLOSE,
+                GLUT_ACTION_GLUTMAINLOOP_RETURNS,
+            )
+
         glutDisplayFunc(self.Draw)
         glutIdleFunc(glutPostRedisplay)
         glutReshapeFunc(self.Reshape)
@@ -162,11 +165,16 @@ class BasicGUI:
         """Stop the simulation and quit"""
         glFinish()
         self.world.DumpGameState()
-        try: # this might not work in Windows
+        self.wesend.close()
+        try:  # this might not work in Windows
             from OpenGL.GLUT import glutLeaveMainLoop
+
             glutLeaveMainLoop()
-        except Exception: # Fallback for systems running legacy GLUT without FreeGLUT extensions
+        except (
+            Exception
+        ):  # Fallback for systems running legacy GLUT without FreeGLUT extensions
             import os
+
             os._exit(0)
 
     def Pause(self):
@@ -174,7 +182,7 @@ class BasicGUI:
         self.pause = not self.pause
 
     def SetSpeed(self, amount):
-        """SetSpeed(amount) -> amount is added to the speed, checks if too low  or high"""
+        """Add amount to the speed, checking whether it is too low or high."""
         self.wait = 1
         self.speed += amount
         if self.speed <= 0:
@@ -238,9 +246,7 @@ class BasicGUI:
         """takes current key bindings and generates hints
         using nice string representations and docstrings"""
         self.keyExplanation = {
-            self._getKeyRepresentation(key): str(
-                self.keybindings[key].__doc__
-            )
+            self._getKeyRepresentation(key): str(self.keybindings[key].__doc__)
             for key in self.keybindings
         }
 

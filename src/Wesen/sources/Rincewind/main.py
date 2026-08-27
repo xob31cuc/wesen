@@ -1,5 +1,6 @@
 from functools import reduce
 from math import atan2, cos, pi, sin
+from typing import Any, cast
 
 from ...defaultwesensource import DefaultWesenSource
 from ...point import getDistInMaxMetric, getShortestTranslation
@@ -16,7 +17,7 @@ class WesenSource(DefaultWesenSource):
         self.minimumTime = 10
         self.minimumEnergyToEat = 0
         self.minimumEnergyToReproduce = 300 * reprFactor
-        # self.minimumEnergyToReproduce = (reprFactor * 2 * self.infoWesen["count"] *\
+        # self.minimumEnergyToReproduce = (reprFactor * 2 *
         # self.infoWesen["energy"]) / self.infoFood["count"];
         self.minimumEnergyToFight = self.minimumEnergyToReproduce * 0.75
         self.target = None
@@ -24,9 +25,9 @@ class WesenSource(DefaultWesenSource):
         self.forbiddenTargets = []
         self.angle = 0.0
         self.first_move = True
-        self.midPoint = None
-        self.state = self.searchFood
-        self.resumeState = self.searchFood
+        self.midPoint: list[int] | None = None
+        self.state: Any = self.searchFood
+        self.resumeState: Any = self.searchFood
         self.radius = 20
 
     def __str__(self):
@@ -35,16 +36,17 @@ class WesenSource(DefaultWesenSource):
     def continueOnCircle(self):
         r = self.radius
         delta_angle = 2 * pi / 50
+        mid_point = cast(list[int], self.midPoint)
         radius = getShortestTranslation(
-            self.midPoint,
+            mid_point,
             self.position(),
             self.infoAllSource["world"]["length"],
         )
         self.angle = atan2(radius[1], radius[0]) + delta_angle
         move_pos = [
-            int(self.midPoint[0] + r * cos(self.angle))
+            int(mid_point[0] + r * cos(self.angle))
             % self.infoAllSource["world"]["length"],
-            int(self.midPoint[1] + r * sin(self.angle))
+            int(mid_point[1] + r * sin(self.angle))
             % self.infoAllSource["world"]["length"],
         ]
         oldPos = self.position()
@@ -58,16 +60,15 @@ class WesenSource(DefaultWesenSource):
         )
         # TODO movingRange is not used after assignment!
         suitableFoods = [f for f in foods if f["age"] > 100]
-        reachableFoods = list(
-            filter(
-                lambda f: getDistInMaxMetric(
-                    self.position(),
-                    f["position"],
-                    self.infoAllSource["world"]["length"],
-                ),
-                suitableFoods,
+        reachableFoods = [
+            f
+            for f in suitableFoods
+            if getDistInMaxMetric(
+                self.position(),
+                f["position"],
+                self.infoAllSource["world"]["length"],
             )
-        )
+        ]
         if len(reachableFoods) > 0:
             return max(reachableFoods, key=lambda f: f["energy"])
         else:
@@ -92,18 +93,14 @@ class WesenSource(DefaultWesenSource):
             # +1 to avoid divbyzero
             self.midPoint = reduce(
                 lambda a, b: [
-                    a[i]
-                    + float(b["energy"])
-                    / float(totalEnergy)
-                    * b["position"][i]
+                    a[i] + float(b["energy"]) / float(totalEnergy) * b["position"][i]
                     for i in range(len(a))
                 ],
                 foods,
                 [0, 0],
             )
             self.midPoint = [
-                int(c) % self.infoAllSource["world"]["length"]
-                for c in self.midPoint
+                int(c) % self.infoAllSource["world"]["length"] for c in self.midPoint
             ]
         # print("midpoint:", self.midPoint);
         if self.energy() > 200:

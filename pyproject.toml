@@ -1,47 +1,180 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [ "setuptools>=61" ]
+
 [project]
 name = "wesen"
 version = "0.7.0"
 description = "game where players program the behavior of their Wesens to defeat the other players"
 readme = "README.md"
-requires-python = ">=3.10"
+# Minimum supported Python version.
+# CI tests 3.12, 3.13, and 3.14 explicitly.
+requires-python = ">=3.12"
 dependencies = [
-    "numpy",
-    "PyOpenGL>=3.1.0",
-    "Pillow>=12.2.0", # which versions are tested?
+  # Deal is a runtime dependency once contracts such as
+  # @deal.pre and @deal.post are used in production code.
+  "deal",
+  "numpy",
+  "pillow>=12.2",
+  "pyopengl>=3.1",
+  "structlog>=25.4",
 ]
-
 [project.scripts]
 wesen = "Wesen.loader:Loader"
 
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+[dependency-groups]
+dev = [
+  # Contract analysis
+  "crosshair-tool",
+  "faker",
+  "fawltydeps>=0.20",
+  "hypothesis",
+  "interrogate>=1.7",
+
+  # Static analysis / formatting
+  "mypy>=2.1",
+  # Development / CI infrastructure
+  "nox",
+  "pre-commit",
+  "pyproject-fmt>=2.28",
+
+  # Tests
+  "pytest>=8.4",
+
+  # Mutation testing
+  "pytest-gremlins",
+  "pytest-xdist",
+  "ruff>=0.15.13",
+]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = [ "src" ]
 
-[tool.wesen.system-dependencies]
-apt = ["freeglut3-dev"]
-pacman = ["freeglut"]
-homebrew = ["freeglut"]
-
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
 [tool.ruff]
-line-length = 75
-target-version = "py312"
-
+# target-version is omitted entirely because Ruff can infer py312 from
+# project.requires-python
+line-length = 85
+src = [ "src" ]
+[tool.ruff.format]
+quote-style = "double"
+# Also format Python code snippets appearing inside docstrings.
+docstring-code-format = true
 [tool.ruff.lint]
-select = ["E", "F", "W", "Q", "I", "UP"]
+select = [
+  "B",  # flake8-bugbear
+  "E",  # pycodestyle errors
+  "F",  # Pyflakes
+  "I",  # import sorting
+  "UP", # pyupgrade
+  "W",  # pycodestyle warnings
+]
+# These rules can conflict with or duplicate Ruff's formatter.
+ignore = [
+  "E111",
+  "E114",
+  "E117",
+  "W191",
+]
 
+# ---------------------------------------------------------------------------
+# interrogate
+# ---------------------------------------------------------------------------
+[tool.interrogate]
+fail-under = 80
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-private = true
+# Tests themselves do not need to contribute to API documentation coverage.
+exclude = [
+  ".nox",
+  "build",
+  "tests",
+]
+verbose = 1
+
+# ---------------------------------------------------------------------------
+# pyproject-fmt
+# ---------------------------------------------------------------------------
+[tool.pyproject-fmt]
+column_width = 120
+indent = 2
+generate_python_version_classifiers = false
+# Keep tables such as [tool.ruff.lint] expanded rather than converting them
+# to dotted keys like `lint.select = ...`.
+table_format = "long"
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
 [tool.mypy]
+files = [ "src" ]
+# Check compatibility with the *oldest* supported Python version.
+python_version = "3.12"
+# Still type-check function bodies even when the function does not yet have
+# complete annotations.
+check_untyped_defs = true
+warn_unused_ignores = true
 strict = false
+# Type-check validators used in Deal contracts.
+plugins = [ "deal.mypy" ]
 warn_unused_configs = true
-
+show_error_codes = true
 [[tool.mypy.overrides]]
 module = "OpenGL.*"
 ignore_missing_imports = true
 
-[dependency-groups]
-dev = [
-    "mypy>=2.1.0",
-    "ruff>=0.15.13",
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
+addopts = [
+  "-ra",
+  "--strict-config",
+  "--strict-markers",
+]
+
+[tool.fawltydeps]
+# The project uses a src layout, so Wesen imports are first-party.
+base_dir = "src"
+# These packages are intentionally present as development/tooling setup even
+# before every corresponding test, contract, or analysis is checked in.
+ignore_unused = [
+  "crosshair-tool",
+  "deal",
+  "faker",
+  "fawltydeps",
+  "hypothesis",
+  "interrogate",
+  "mypy",
+  "pre-commit",
+  "pyproject-fmt",
+  "pytest",
+  "pytest-gremlins",
+  "pytest-xdist",
+  "ruff",
+]
+
+[tool.wesen.system-dependencies]
+apt = [ "freeglut3-dev" ]
+pacman = [ "freeglut" ]
+homebrew = [ "freeglut" ]
+
+# ---------------------------------------------------------------------------
+# pytest-gremlins
+# ---------------------------------------------------------------------------
+[tool.pytest-gremlins]
+paths = [ "src/Wesen" ]
+# Cache unchanged mutations locally.
+cache = true
+# Use available CPU cores for mutation testing.
+workers = "auto"
+# Produce machine-readable and human-readable CI reports.
+report = [
+  "html",
+  "json",
 ]

@@ -1,7 +1,10 @@
 """The class for all data and operations a single Wesen has"""
 
 import importlib
+from copy import deepcopy
+from functools import wraps
 
+from ..replay.events import object_states
 from .base import WorldObject
 
 
@@ -11,6 +14,28 @@ class RuleException(Exception):
 
     def __init__(self, ruleDescription):
         super().__init__(ruleDescription)
+
+
+class _ReplayWesenSource:
+    """Inert source state holder used while applying replay snapshots."""
+
+    def __init__(self):
+        self._state = {}
+
+    def getDescriptor(self):
+        return {}
+
+    def persist(self):
+        return self._state
+
+    def restore(self, state):
+        self._state = deepcopy(state)
+
+    def Receive(self, _message):
+        return None
+
+    def main(self):
+        raise RuntimeError("Wesen source AI must not run during replay")
 
 
 class Wesen(WorldObject):
@@ -25,29 +50,35 @@ class Wesen(WorldObject):
         WorldObject.__init__(self, infoAllObject)
         self.infoTime = infoAllObject["time"]
         self.source = self.infoObject["source"]
-        # TODO one can probably avoid multiple imports (if not already)
-        WesenSource = importlib.import_module(
-            "..sources." + self.source + ".main", __package__
-        ).WesenSource
-        infoSource = {"source": self.source}
-        infoSourceWorld = self.infoWorld.copy()
-        del infoSourceWorld["objects"]
-        del infoSourceWorld["AddObject"]
-        del infoSourceWorld["DeleteObject"]
-        infoAllSource = {
-            "world": infoSourceWorld,
-            "source": infoSource,
-            "time": self.infoTime,
-            "range": self.infoRange,
-            "wesen": self.infoObject,
-            "food": infoAllObject["food"],
-        }
-        self.wesenSource = WesenSource(infoAllSource)
+        if infoAllObject.get("load_source", True):
+            # TODO one can probably avoid multiple imports (if not already)
+            WesenSource = importlib.import_module(
+                "..sources." + self.source + ".main", __package__
+            ).WesenSource
+            infoSource = {"source": self.source}
+            infoSourceWorld = self.infoWorld.copy()
+            del infoSourceWorld["objects"]
+            del infoSourceWorld["AddObject"]
+            del infoSourceWorld["DeleteObject"]
+            infoAllSource = {
+                "world": infoSourceWorld,
+                "source": infoSource,
+                "time": self.infoTime,
+                "range": self.infoRange,
+                "wesen": self.infoObject,
+                "food": infoAllObject["food"],
+            }
+            self.wesenSource = WesenSource(infoAllSource)
+        else:
+            self.wesenSource = _ReplayWesenSource()
         self.Receive = None
         self.PutInterface(self.wesenSource)
 
     def __repr__(self):
-        return f"<wesen id={id(self)} pos={self.position} energy={self.energy} source={str(self.wesenSource)}>"
+        return (
+            f"<wesen sim_id={self.sim_id} pos={self.position} "
+            f"energy={self.energy} source={str(self.wesenSource)}>"
+        )
 
     def PutInterface(self, source):
         """maps the source functions to the corresponding wesen functions."""
@@ -56,18 +87,64 @@ class Wesen(WorldObject):
         source.position = self.getPosition
         source.energy = self.getEnergy
         source.time = self.getTime
-        source.look = self.look
-        source.closerLook = self.closerLook
-        source.Move = self.Move
-        source.MoveToPosition = self.MoveToPosition
-        source.Talk = self.Talk
-        source.Eat = self.Eat
-        source.Reproduce = self.Reproduce
-        source.Attack = self.Attack
-        source.Vomit = self.Vomit
-        source.Donate = self.Donate
-        source.Broadcast = self.Broadcast
+        source.look = self._sourceAction("Look", self.look)
+        source.closerLook = self._sourceAction("CloserLook", self.closerLook)
+        source.Move = self._sourceAction("Move", self.Move)
+        source.MoveToPosition = self._sourceAction(
+            "MoveToPosition", self.MoveToPosition
+        )
+        source.Talk = self._sourceAction("Talk", self.Talk)
+        source.Eat = self._sourceAction("Eat", self.Eat)
+        source.Reproduce = self._sourceAction("Reproduce", self.Reproduce)
+        source.Attack = self._sourceAction("Attack", self.Attack)
+        source.Vomit = self._sourceAction("Vomit", self.Vomit)
+        source.Donate = self._sourceAction("Donate", self.Donate)
+        source.Broadcast = self._sourceAction("Broadcast", self.Broadcast)
         self.Receive = source.Receive
+
+    def _sourceAction(self, name, action):
+        """Wrap an AI-visible action with command/result instrumentation."""
+
+        @wraps(action)
+        def recorded(*args, **kwargs):
+            recorder = self.recorder
+            before = (
+                object_states(self.worldObjects) if recorder is not None else None
+            )
+            try:
+                result = action(*args, **kwargs)
+            except Exception as error:
+                if recorder is not None:
+                    recorder.event(
+                        "source_action",
+                        turn=self.getTurn(),
+                        actor=self.sim_id,
+                        name=name,
+                        args=list(args),
+                        kwargs=kwargs,
+                        result=False,
+                        error=f"{type(error).__name__}: {error}",
+                    )
+                    recorder.record_state_changes(
+                        before, self.worldObjects, self.getTurn()
+                    )
+                raise
+            if recorder is not None:
+                recorder.event(
+                    "source_action",
+                    turn=self.getTurn(),
+                    actor=self.sim_id,
+                    name=name,
+                    args=list(args),
+                    kwargs=kwargs,
+                    result=result,
+                )
+                recorder.record_state_changes(
+                    before, self.worldObjects, self.getTurn()
+                )
+            return result
+
+        return recorded
 
     # small capabilites, no time cost
 
@@ -85,7 +162,7 @@ class Wesen(WorldObject):
 
     def getId(self):
         """returns own object id (for free)"""
-        return id(self)
+        return self.sim_id
 
     def getAge(self):
         """returns own age (for free)"""
@@ -95,7 +172,7 @@ class Wesen(WorldObject):
 
     def look(self):
         """returns a list of dictionaries with all visible WorldObjects position,
-        objecttype and python id.
+        objecttype and stable simulation id.
         """
         if self._UseTime("look"):
             return [
@@ -140,26 +217,16 @@ class Wesen(WorldObject):
         # usedTime = self.infoTime["move"]*(abs(direction[0])+abs(direction[1]));
         if direction[0] < 0:
             if direction[1] < 0:
-                usedTime = (
-                    self.infoTime["move"]
-                    * -1
-                    * (direction[0] + direction[1])
-                )
+                usedTime = self.infoTime["move"] * -1 * (direction[0] + direction[1])
             elif direction[1] > 0:
-                usedTime = self.infoTime["move"] * (
-                    direction[1] - direction[0]
-                )
+                usedTime = self.infoTime["move"] * (direction[1] - direction[0])
             else:
                 usedTime = self.infoTime["move"] * -1 * direction[0]
         elif direction[0] > 0:
             if direction[1] < 0:
-                usedTime = self.infoTime["move"] * (
-                    direction[0] - direction[1]
-                )
+                usedTime = self.infoTime["move"] * (direction[0] - direction[1])
             elif direction[1] > 0:
-                usedTime = self.infoTime["move"] * (
-                    direction[1] + direction[0]
-                )
+                usedTime = self.infoTime["move"] * (direction[1] + direction[0])
             else:
                 usedTime = self.infoTime["move"] * direction[0]
         else:
@@ -174,9 +241,9 @@ class Wesen(WorldObject):
             oldPos = self.position
             self.position = [
                 (pc + dc) % self.infoWorld["length"]
-                for (pc, dc) in zip(self.position, direction)
+                for (pc, dc) in zip(self.position, direction, strict=True)
             ]
-            self.UpdatePos(id(self), oldPos, self.getDescriptor())
+            self.UpdatePos(self.sim_id, oldPos, self.getDescriptor())
             return True
         else:
             return False
@@ -188,7 +255,7 @@ class Wesen(WorldObject):
             if not self.Move(
                 [
                     -1 if nc < pc else 1 if nc > pc else 0
-                    for (nc, pc) in zip(newPosition, self.position)
+                    for (nc, pc) in zip(newPosition, self.position, strict=True)
                 ]
             ):
                 return False
@@ -197,10 +264,10 @@ class Wesen(WorldObject):
     def Talk(self, wesenid, message):
         """calls Receive(message) in the wesen specified by wesenid when in range."""
         if self._UseTime("talk"):
-            for oid, o in self.getRangeIterator(
+            for _oid, o in self.getRangeIterator(
                 self.infoRange["look"],
-                condition=lambda x: (
-                    (oid == wesenid) and (o.objectType == "wesen")
+                condition=lambda candidate: (
+                    candidate.sim_id == wesenid and candidate.objectType == "wesen"
                 ),
             ):
                 o.wesenSource.Receive(message)
@@ -208,7 +275,7 @@ class Wesen(WorldObject):
         return False
 
     def Eat(self, foodid):
-        """if it's at the same position, eat the food with python object id foodid."""
+        """Eat the food with stable simulation id ``foodid``."""
         if self.dead:
             return False
         if foodid not in self.worldObjects:
@@ -221,12 +288,13 @@ class Wesen(WorldObject):
         else:
             if o.position != self.position:
                 raise RuleException(
-                    "In order to eat something, one has to be at the same position. Keep in mind that wesen move and you have to look where they are each turn, as the information from looking around becomes stale quickly!"
+                    "In order to eat something, one has to be at the same "
+                    "position. Keep in mind that wesen move and you have to "
+                    "look where they are each turn, as the information from "
+                    "looking around becomes stale quickly!"
                 )
             if o.objectType != "food":
-                raise RuleException(
-                    "In order to eat something, it has to be food."
-                )
+                raise RuleException("In order to eat something, it has to be food.")
         return False
 
     def Reproduce(self):
@@ -245,7 +313,7 @@ class Wesen(WorldObject):
             self.energy -= childEnergy
             self.age = 0
             self._EnergyCheck()
-            return id(child)
+            return child.sim_id
         return False
 
     def Attack(self, wesenid):
@@ -258,10 +326,10 @@ class Wesen(WorldObject):
             return False
         try:
             o = self.worldObjects[wesenid]
-        except KeyError:
+        except KeyError as error:
             raise RuleException(
                 f"May not attack non-existent enemy with id '{wesenid}'"
-            )
+            ) from error
         if (o.objectType == "wesen") and (o.position == self.position):
             if self._UseTime("attack"):
                 self.energy -= int(o.getAttacked(self.energy) * 0.5)
@@ -365,7 +433,7 @@ class Wesen(WorldObject):
     def restore(self, obj):
         """restores the state of the wesen object"""
         WorldObject.restore(self, obj)
-        self.wesenSource.restore(obj)
+        self.wesenSource.restore(obj.get("wesensource", {}))
 
     def _UseTime(self, function):
         """if the wesen has enough time,
@@ -397,7 +465,5 @@ class Wesen(WorldObject):
         WorldObject.main(self)
         if not self.dead:
             self.energy -= 1
-            self.time = min(
-                self.time + self.infoTime["init"], self.infoTime["max"]
-            )
+            self.time = min(self.time + self.infoTime["init"], self.infoTime["max"])
             self.wesenSource.main()

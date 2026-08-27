@@ -3,12 +3,13 @@
 import OpenGL
 
 OpenGL.ERROR_ON_COPY = True
-from math import ceil, log
+# PyOpenGL must be configured before importing its GL and VBO submodules.
+from math import ceil, log  # noqa: E402
 
-from numpy import array as narray
-from numpy import zeros as nzeros
-from OpenGL.arrays import vbo
-from OpenGL.GL import (
+from numpy import array as narray  # noqa: E402
+from numpy import zeros as nzeros  # noqa: E402
+from OpenGL.arrays import vbo  # noqa: E402
+from OpenGL.GL import (  # noqa: E402
     GL_ARRAY_BUFFER,
     GL_COLOR_ARRAY,
     GL_DYNAMIC_DRAW,
@@ -24,7 +25,7 @@ from OpenGL.GL import (
     glVertexPointer,
 )
 
-from .object import GuiObject
+from .object import GuiObject  # noqa: E402
 
 
 class Map(GuiObject):
@@ -35,7 +36,7 @@ class Map(GuiObject):
         self.worldLength = infoWorld["length"]
         self.colorDescriptor = {
             wesenSource: color
-            for (wesenSource, color) in zip(sourceList, colorList)
+            for (wesenSource, color) in zip(sourceList, colorList, strict=False)
         }
         self._indices = {}
         self._data = None
@@ -133,8 +134,8 @@ class Map(GuiObject):
         if index > 0:
             values = self.__descToArray(obj)
             num_values = len(values)
-            self._vbo[index * num_values : (index + 1) * num_values] = (
-                narray(values, "f")
+            self._vbo[index * num_values : (index + 1) * num_values] = narray(
+                values, "f"
             )
             self._indices[_id] = index
         else:
@@ -176,9 +177,11 @@ class Map(GuiObject):
             return
         self._dirty_objects[_id] = obj
 
-    def Draw(self, descriptor=[]):
+    def Draw(self, descriptor=None):
         """Draws a map with all objects in the world,
         according to the descriptor."""
+        if descriptor is None:
+            descriptor = []
         GuiObject.Draw(self)
         # TODO get rid of any frame mechanism parts here
         frame = self._getFrameData()["frame"]
@@ -200,22 +203,22 @@ class Map(GuiObject):
             glTranslatef(frame, 2 * frame, 0.0)
             # moving away from the frame
             glScale(scaleFactor, scaleFactor, 1.0)
-            self._vbo.bind()
-            self._vbo.copy_data()
+            current_vbo = self._vbo
+            assert current_vbo is not None
+            current_vbo.bind()
+            current_vbo.copy_data()
             try:
                 glEnableClientState(GL_VERTEX_ARRAY)
                 glEnableClientState(GL_COLOR_ARRAY)
                 # 2 coordinates with 4 color values with 4 bytes each in
                 # between
-                glVertexPointer(2, GL_FLOAT, 24, self._vbo)
+                glVertexPointer(2, GL_FLOAT, 24, current_vbo)
                 # 4 color values with 2 coordinates with 4 bytes each in
                 # between
-                glColorPointer(4, GL_FLOAT, 24, self._vbo + 8)
-                glDrawArrays(
-                    GL_TRIANGLES, 0, 3 * 2 * (self._max_index + 1)
-                )
+                glColorPointer(4, GL_FLOAT, 24, current_vbo + 8)
+                glDrawArrays(GL_TRIANGLES, 0, 3 * 2 * (self._max_index + 1))
             finally:
-                self._vbo.unbind()
+                current_vbo.unbind()
                 glDisableClientState(GL_VERTEX_ARRAY)
                 glDisableClientState(GL_COLOR_ARRAY)
 

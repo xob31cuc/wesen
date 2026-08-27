@@ -13,14 +13,9 @@ def getRandomPosition(length):  # unused
     return [randint(0, length - 1), randint(0, length - 1)]
 
 
-def getRandomPositionInRadius(
-    position, radius, length
-):  # TODO move to Food
+def getRandomPositionInRadius(position, radius, length):  # TODO move to Food
     """x + random(-radius,+radius)"""
-    return [
-        (length + pc + randint(-radius, radius)) % length
-        for pc in position
-    ]
+    return [(length + pc + randint(-radius, radius)) % length for pc in position]
 
 
 def getShortestTranslation(a, b, length):
@@ -28,7 +23,7 @@ def getShortestTranslation(a, b, length):
     computes shortest vector from a to b."""
     return [
         min(c, -1 * copysign(length - c, c), key=abs)
-        for c in [(bc - ac) % length for (ac, bc) in zip(a, b)]
+        for c in [(bc - ac) % length for (ac, bc) in zip(a, b, strict=True)]
     ]
 
 

@@ -13,6 +13,9 @@ class WorldObject:
         self.infoWorld = infoAllObject["world"]
         self.infoObject = infoAllObject["object"]
         self.infoRange = infoAllObject["range"]
+        self.sim_id = infoAllObject["sim_id"]
+        self.recorder = infoAllObject.get("recorder")
+        self.getTurn = infoAllObject.get("get_turn", lambda: 0)
         self.objectType = self.infoObject["type"]
         self.energy = self.infoObject["energy"]
         self.DeleteObject = self.infoWorld["DeleteObject"]
@@ -29,7 +32,10 @@ class WorldObject:
         )
 
     def __repr__(self):
-        return f"<worldobject id={id(self)} pos={self.position} energy={self.energy}>"
+        return (
+            f"<worldobject sim_id={self.sim_id} "
+            f"pos={self.position} energy={self.energy}>"
+        )
 
     def getRangeIterator(self, radius, condition):
         """returns an iterator of pairs (id, object)
@@ -61,7 +67,7 @@ class WorldObject:
     def Die(self):
         """deletes WorldObject instance from world."""
         self.dead = True
-        self.DeleteObject(id(self))
+        self.DeleteObject(self.sim_id)
 
     def getDescriptor(self):
         """return descriptive data for the gui,
@@ -69,7 +75,8 @@ class WorldObject:
         """
         return {
             "position": self.position,
-            "id": id(self),
+            "id": self.sim_id,
+            "sim_id": self.sim_id,
             "energy": self.energy,
             "age": self.age,
             "type": self.objectType,
@@ -79,6 +86,7 @@ class WorldObject:
         """returns JSON serializable object with all information
         needed to restore the state of the object"""
         return {
+            "sim_id": self.sim_id,
             "type": self.objectType,
             "energy": self.energy,
             "age": self.age,
@@ -89,6 +97,9 @@ class WorldObject:
 
     def restore(self, obj):
         """restores state of this objects from obj"""
+        # Old savegames predate stable simulation IDs. In that case AddObject
+        # has already assigned the replacement ID used by this restored world.
+        self.sim_id = obj.get("sim_id", self.sim_id)
         self.age = obj["age"]
         self.energy = obj["energy"]
         self.position = obj["position"]
