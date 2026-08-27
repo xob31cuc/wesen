@@ -74,7 +74,8 @@ class World:
 
     def setCallbacks(self, callbacks):
         """used by UI to manipulate the world
-        >>> set(callbacks.keys()) == set(["DeleteObject", "AddObject", "UpdatePos"])
+        >>> callbacks = dict.fromkeys(["DeleteObject", "AddObject", "UpdatePos"])
+        >>> set(callbacks) == {"DeleteObject", "AddObject", "UpdatePos"}
         True
         """
         self.callbacks = callbacks

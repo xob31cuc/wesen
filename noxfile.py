@@ -40,7 +40,7 @@ def tests(session: nox.Session) -> None:
     reuse_venv=True,
 )
 def crosshair(session: nox.Session) -> None:
-    """Check Deal contracts symbolically with CrossHair."""
+    """Check Deal contracts and assertions symbolically with CrossHair."""
 
     session.install("-e", ".")
     session.install(
@@ -51,7 +51,7 @@ def crosshair(session: nox.Session) -> None:
     session.run(
         "crosshair",
         "check",
-        "--analysis_kind=deal",
+        "--analysis_kind=deal,asserts",
         SOURCE,
     )
 

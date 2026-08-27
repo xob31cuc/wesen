@@ -207,8 +207,8 @@ class BasicGUI:
 
     def _getKeyRepresentation(self, key):
         """takes a character and returns a nice string representation, like
-        >>> self._getKeyRepresentation(27)
-        <ESC>
+        >>> BasicGUI._getKeyRepresentation(None, 27)
+        '<ESC>'
         """
 
         def specialKeyRepresentation(key):
