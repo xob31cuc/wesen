@@ -87,7 +87,6 @@ fail-under = 80
 ignore-init-method = true
 ignore-init-module = true
 ignore-magic = true
-ignore-private = true
 # Tests themselves do not need to contribute to API documentation coverage.
 exclude = [
   ".nox",
@@ -158,6 +157,9 @@ ignore_unused = [
   "pytest-xdist",
   "ruff",
 ]
+[tool.fawltydeps.custom_mapping]
+pillow = [ "PIL" ]
+pyopengl = [ "OpenGL" ]
 
 [tool.wesen.system-dependencies]
 apt = [ "freeglut3-dev" ]
