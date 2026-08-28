@@ -6,7 +6,6 @@ OpenGL.ERROR_ON_COPY = True
 # PyOpenGL must be configured before importing its GL and VBO submodules.
 from math import ceil, log  # noqa: E402
 
-from numpy import array as narray  # noqa: E402
 from numpy import zeros as nzeros  # noqa: E402
 from OpenGL.arrays import vbo  # noqa: E402
 from OpenGL.GL import (  # noqa: E402
@@ -134,9 +133,8 @@ class Map(GuiObject):
         if index > 0:
             values = self.__descToArray(obj)
             num_values = len(values)
-            self._vbo[index * num_values : (index + 1) * num_values] = narray(
-                values, "f"
-            )
+            self._vbo.data[index * num_values : (index + 1) * num_values] = values
+            self._vbo.copied = False
             self._indices[_id] = index
         else:
             self._vbo = None
@@ -153,9 +151,8 @@ class Map(GuiObject):
             self._empty_indices.append(index)
         else:
             self._max_index -= 1
-        self._vbo[index * num_values : (index + 1) * num_values] = nzeros(
-            num_values, "f"
-        )
+        self._vbo.data[index * num_values : (index + 1) * num_values] = 0
+        self._vbo.copied = False
 
     def _UpdateObject(self, _id, obj):
         """Updates an object in the VBO"""
@@ -167,9 +164,10 @@ class Map(GuiObject):
         if index < 0:
             return
         num_values = type(self).__num_values
-        self._vbo[index * num_values : (index + 1) * num_values] = narray(
-            self.__descToArray(obj), "f"
+        self._vbo.data[index * num_values : (index + 1) * num_values] = (
+            self.__descToArray(obj)
         )
+        self._vbo.copied = False
 
     def _MarkDirty(self, _id, obj):
         """Marks an object in the VBO for updating"""
@@ -206,7 +204,6 @@ class Map(GuiObject):
             current_vbo = self._vbo
             assert current_vbo is not None
             current_vbo.bind()
-            current_vbo.copy_data()
             try:
                 glEnableClientState(GL_VERTEX_ARRAY)
                 glEnableClientState(GL_COLOR_ARRAY)

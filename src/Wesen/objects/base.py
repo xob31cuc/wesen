@@ -1,5 +1,7 @@
 """model and controller for single objects in the simulation"""
 
+from bisect import bisect_left, bisect_right
+
 from ..point import getRandomPosition
 
 
@@ -22,6 +24,7 @@ class WorldObject:
         self.AddObject = self.infoWorld["AddObject"]
         self.worldObjects = self.infoWorld["objects"]
         self.map = self.infoWorld["map"]
+        self.occupiedY = infoAllObject["occupied_y"]
         self.UpdatePos = self.infoWorld["UpdatePos"]
         self.age = 0
         self.time = 0
@@ -56,13 +59,24 @@ class WorldObject:
         minY = max(0, y - radius)
         maxY = min(self.infoWorld["length"], y + radius + 1)
         # print(minX, maxX, maxY, maxY, self.infoWorld["length"]);
-        return (
-            (i, o)
-            for x1 in range(minX, maxX)
-            for y1 in range(minY, maxY)
-            for (i, o) in self.map[x1][y1].items()
-            if (condition is None or condition(o))
-        )
+        world_map = self.map
+        occupied_y = self.occupiedY
+        if condition is None:
+            for x1 in range(minX, maxX):
+                ys = occupied_y[x1]
+                start = bisect_left(ys, minY)
+                stop = bisect_right(ys, maxY - 1)
+                for y_index in range(start, stop):
+                    yield from world_map[x1][ys[y_index]].items()
+        else:
+            for x1 in range(minX, maxX):
+                ys = occupied_y[x1]
+                start = bisect_left(ys, minY)
+                stop = bisect_right(ys, maxY - 1)
+                for y_index in range(start, stop):
+                    for object_id, obj in world_map[x1][ys[y_index]].items():
+                        if condition(obj):
+                            yield object_id, obj
 
     def Die(self):
         """deletes WorldObject instance from world."""

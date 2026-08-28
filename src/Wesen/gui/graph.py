@@ -124,8 +124,7 @@ class Graph(GuiObject):
             glColor3f(*sensorInfo["color"])
             # to make the color effective for text,
             # we have to call glRasterPos by printing a linebreak:
-            p.Print("\n")
-            p.Print("  {}".format(sensorInfo["name"]))
+            p.Print("\n  {}".format(sensorInfo["name"]))
 
     def Draw(self):
         GuiObject.Draw(self)
@@ -162,16 +161,13 @@ class _SensorData:
             self.buffer_full = True
         self.previous_index = (self.previous_index + 1) % self.size
         self.buf[self.previous_index * 2 + 1] = value
-        self.vbo[self.previous_index * 2 + 1 : self.previous_index * 2 + 2] = narray(
-            [value], "f"
-        )
+        self.vbo.copied = False
         self.maxValue = max(self.maxValue, value)
 
     def Draw(self):
         """draw a curve of all previous data,
         up to a certain point (self.resolution)"""
         self.vbo.bind()
-        self.vbo.copy_data()
         glEnableClientState(GL_VERTEX_ARRAY)
         glVertexPointer(2, GL_FLOAT, 0, self.vbo)
         if self.buffer_full:

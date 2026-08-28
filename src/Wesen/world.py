@@ -1,6 +1,7 @@
 """The world in which Wesen takes place"""
 
 import json
+from bisect import bisect_left, insort
 from copy import deepcopy
 
 import numpy as np
@@ -54,6 +55,7 @@ class World:
         length = infoAllWorld["world"]["length"]
         self.map = np.empty((length, length), dtype=object)
         self.map.flat[:] = [{} for _ in range(length**2)]
+        self._occupied_y: list = [[] for _ in range(length)]
         # is initialized depending on sources in initStats()
         self.infoAllWorld["world"].update(
             {
@@ -112,7 +114,11 @@ class World:
         obj = self.objects[objectid]
         pos = obj.position
         state = obj.persist() if self.recorder is not None else None
-        del self.map[pos[0]][pos[1]][objectid]
+        cell = self.map[pos[0]][pos[1]]
+        del cell[objectid]
+        if not cell:
+            ys = self._occupied_y[pos[0]]
+            del ys[bisect_left(ys, pos[1])]
         del self.objects[objectid]
         if self.recorder is not None and state is not None:
             self.recorder.event(
@@ -148,6 +154,7 @@ class World:
             "load_source": self.load_sources,
             "recorder": self.recorder,
             "get_turn": lambda: self.turns,
+            "occupied_y": self._occupied_y,
         }
         infoAllObject["world"].update({"objects": self.objects})
         newObject: WorldObject
@@ -158,7 +165,11 @@ class World:
         else:
             raise Exception("invalid objectType: " + object_info["type"])
         self.objects[sim_id] = newObject
-        self.map[newObject.position[0]][newObject.position[1]][sim_id] = newObject
+        x, y = newObject.position
+        cell = self.map[x][y]
+        if not cell:
+            insort(self._occupied_y[x], y)
+        cell[sim_id] = newObject
         if self.recorder is not None:
             self.recorder.event(
                 "object_created",
@@ -173,9 +184,16 @@ class World:
 
     def UpdatePos(self, _id, oldPos, obj):
         """updates the map about an objects position"""
-        del self.map[oldPos[0]][oldPos[1]][_id]
+        old_cell = self.map[oldPos[0]][oldPos[1]]
+        del old_cell[_id]
+        if not old_cell:
+            ys = self._occupied_y[oldPos[0]]
+            del ys[bisect_left(ys, oldPos[1])]
         newPos = obj["position"]
-        self.map[newPos[0]][newPos[1]][_id] = self.objects[_id]
+        new_cell = self.map[newPos[0]][newPos[1]]
+        if not new_cell:
+            insort(self._occupied_y[newPos[0]], newPos[1])
+        new_cell[_id] = self.objects[_id]
         if self.recorder is not None:
             self.recorder.event(
                 "object_moved",
@@ -230,6 +248,7 @@ class World:
         length = self.infoAllWorld["world"]["length"]
         self.map = np.empty((length, length), dtype=object)
         self.map.flat[:] = [{} for _ in range(length**2)]
+        self._occupied_y = [[] for _ in range(length)]
         self.infoAllWorld["world"]["objects"] = self.objects
         self.infoAllWorld["world"]["map"] = self.map
         self.turns = obj.get("turns", 0)

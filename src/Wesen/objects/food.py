@@ -1,6 +1,6 @@
 """The Food class, which is present in every simulation."""
 
-from numpy.random import uniform
+from numpy.random import random_sample
 
 from ..point import getRandomPositionInRadius
 from .base import WorldObject
@@ -63,7 +63,7 @@ class Food(WorldObject):
 
     def Grow(self):
         """increment energy by some amount."""
-        self.energy += int(uniform(0, 2) * self.growrate)
+        self.energy += int(random_sample() * 2 * self.growrate)
 
     def Seed(self):
         """create a new Food instance in seedrange."""
@@ -128,7 +128,7 @@ class Food(WorldObject):
         # handles age and low-energy death
         if not self.dead:
             if self.age > 10:  # TODO numbers should be a config option
-                if uniform(0, 1) < self.seedrate:
+                if random_sample() < self.seedrate:
                     if not self._hasTooMuchFoodNearby():
                         self.Seed()
             self.Grow()
