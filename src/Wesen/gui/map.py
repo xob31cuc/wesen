@@ -1,5 +1,10 @@
 """Contains the Map, a visualization of all object's positions."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
 import OpenGL
 
 OpenGL.ERROR_ON_COPY = True
@@ -26,29 +31,40 @@ from OpenGL.GL import (  # noqa: E402
 
 from .object import GuiObject  # noqa: E402
 
+if TYPE_CHECKING:
+    from Wesen.gui.basicgui import BasicGUI
+
+type Descriptor = dict[str, Any]
+
 
 class Map(GuiObject):
     """A Map() object plots the descriptor data onto a 2d-grid."""
 
-    def __init__(self, gui, infoWorld, sourceList, colorList):
+    def __init__(
+        self,
+        gui: BasicGUI,
+        infoWorld: dict[str, Any],
+        sourceList: list[str],
+        colorList: list[list[float]],
+    ) -> None:
         GuiObject.__init__(self, gui)
-        self.worldLength = infoWorld["length"]
+        self.worldLength = int(infoWorld["length"])
         self.colorDescriptor = {
             wesenSource: color
             for (wesenSource, color) in zip(sourceList, colorList, strict=False)
         }
-        self._indices = {}
-        self._data = None
-        self._vbo = None  # VBO = vertex buffer object
-        self._empty_indices = []
+        self._indices: dict[int, int] = {}
+        self._data: Any | None = None
+        self._vbo: Any | None = None  # VBO = vertex buffer object
+        self._empty_indices: list[int] = []
         self._max_index = -1
         self._data_size = -1
-        self._dirty_objects = {}
+        self._dirty_objects: dict[int, Descriptor] = {}
 
     __num_values = 6 * (2 + 4)
     # 6 points with 2 coordinates and 4 color values
 
-    def __descToArray(self, desc):
+    def __descToArray(self, desc: Descriptor) -> list[float]:
         """returns list that contains the vertex and color data for one object"""
         color = (
             self.colorDescriptor[desc["source"]]  # color
@@ -95,7 +111,7 @@ class Map(GuiObject):
             1.0,
         ]
 
-    def _BuildData(self, descriptor):
+    def _BuildData(self, descriptor: list[Descriptor]) -> None:
         """Builds data array from scratch and creates VBO object"""
         if len(descriptor) == 0:
             return
@@ -120,7 +136,7 @@ class Map(GuiObject):
         )
         self._dirty_objects = {}
 
-    def _AddObject(self, _id, obj):
+    def _AddObject(self, _id: int, obj: Descriptor) -> None:
         """Adds an object to the VBO"""
         if self._vbo is None:
             return
@@ -140,7 +156,7 @@ class Map(GuiObject):
             self._vbo = None
             # trigger _BuildData for next draw
 
-    def _DelObject(self, _id):
+    def _DelObject(self, _id: int) -> None:
         """Removes an object from the VBO"""
         if self._vbo is None:
             return
@@ -154,7 +170,7 @@ class Map(GuiObject):
         self._vbo.data[index * num_values : (index + 1) * num_values] = 0
         self._vbo.copied = False
 
-    def _UpdateObject(self, _id, obj):
+    def _UpdateObject(self, _id: int, obj: Descriptor) -> None:
         """Updates an object in the VBO"""
         if self._vbo is None:
             return
@@ -169,13 +185,13 @@ class Map(GuiObject):
         )
         self._vbo.copied = False
 
-    def _MarkDirty(self, _id, obj):
+    def _MarkDirty(self, _id: int, obj: Descriptor) -> None:
         """Marks an object in the VBO for updating"""
         if self._vbo is None:
             return
         self._dirty_objects[_id] = obj
 
-    def Draw(self, descriptor=None):
+    def Draw(self, descriptor: list[Descriptor] | None = None) -> None:
         """Draws a map with all objects in the world,
         according to the descriptor."""
         if descriptor is None:
@@ -219,7 +235,7 @@ class Map(GuiObject):
                 glDisableClientState(GL_VERTEX_ARRAY)
                 glDisableClientState(GL_COLOR_ARRAY)
 
-    def GetCallbacks(self):
+    def GetCallbacks(self) -> dict[str, Callable[..., None]]:
         """returns the callbacks used in the world
         to inform the Map GuiObject about changes"""
         return {

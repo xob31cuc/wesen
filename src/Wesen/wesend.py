@@ -3,10 +3,13 @@ with or without GUI,
 with or without savegame,
 provided a configuration is given."""
 
+from __future__ import annotations
+
 import importlib
 import json
 from os.path import exists
 from pprint import pprint
+from typing import Any
 
 from .defaults import DEFAULT_GAME_STATE_FILE
 from .replay.recorder import ReplayRecorder
@@ -23,7 +26,7 @@ class Wesend:
     and, if enabled in the config, a Gui object.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: dict[str, Any]) -> None:
         """config should be a dictionary (see loader.py),
         extraArgs are all passed to OpenGL"""
         self.replay_path = config.pop("replay", None)
@@ -78,18 +81,19 @@ class Wesend:
             self.world.setRecorder(self.recorder)
             self.recorder.start(self.world)
 
-    def start(self, extraArgs=""):
+    def start(self, extraArgs: str = "") -> bool | None:
         """starts the simulation (with GUI, if configured)"""
         try:
             if self.verify_replay_path:
                 return self.verifyReplay()
             if self.infoGui["enable"]:
-                return self.initGUI(extraArgs)
+                self.initGUI(extraArgs)
+                return None
             return self.main()
         finally:
             self.close()
 
-    def initGUI(self, extraArgs):
+    def initGUI(self, extraArgs: str) -> None:
         """handing over all control to the gui"""
         GUI = importlib.import_module(
             ".gui." + self.infoGui["source"], __package__
@@ -103,12 +107,12 @@ class Wesend:
         }
         GUI(infoGui, self.mainLoop, self.world, extraArgs)
 
-    def Debug(self, message):
+    def Debug(self, message: Any) -> None:
         """currently just prints the message."""
         # TODO change or remove the Debug mechanism.
         print("debug message: ", message)
 
-    def mainLoop(self):
+    def mainLoop(self) -> list[dict[str, Any]]:
         """Advance one normal turn or apply one replay frame."""
         if self.replayer is not None:
             self.replay_finished = not self.replayer.step(self.world)
@@ -116,7 +120,7 @@ class Wesend:
             self.world.main()
         return self.world.getDescriptor()
 
-    def main(self):
+    def main(self) -> bool | None:
         """calls world.main() in gui-less mode,
         until KeyboardInterrupt
         and prints stats every 1000 turns to show some action"""
@@ -140,8 +144,9 @@ class Wesend:
             if (self.world.turns % 1000) == 0:
                 print("turn", self.world.turns, "stats:")
                 pprint(self.world.stats, indent=3, depth=4, width=80)
+        return None
 
-    def verifyReplay(self):
+    def verifyReplay(self) -> bool:
         """Verify every replay frame and report the first mismatch."""
         if self.replayer is None:
             raise RuntimeError("cannot verify a replay without a replay file")
@@ -152,7 +157,7 @@ class Wesend:
             print(f"actual:   {result.actual}")
         return result.ok
 
-    def close(self):
+    def close(self) -> None:
         """Flush and close resources owned by this simulation runner."""
         if self.recorder is not None:
             self.recorder.close()

@@ -1,13 +1,17 @@
+from __future__ import annotations
+
+from typing import Any
+
 from numpy.random import randint, uniform
 
-from ...defaultwesensource import DefaultWesenSource
+from ...defaultwesensource import CloserLookDescriptor, DefaultWesenSource
 from . import helper
 
 
 class WesenSource(DefaultWesenSource):
     globalScanVector = (uniform(-1, 1), uniform(-1, 1))
 
-    def __init__(self, infoAllSource):
+    def __init__(self, infoAllSource: dict[str, Any]) -> None:
         """Do all initialization stuff."""
         DefaultWesenSource.__init__(self, infoAllSource)
         self.infoAllSource = infoAllSource
@@ -17,14 +21,14 @@ class WesenSource(DefaultWesenSource):
         self.minimalGardenAge = 50
         self.minimumEnergyToReproduce = 1500
         self.minimumEnergyToFight = 300
-        self.target = None
-        self.targetType = None
-        self.forbiddenTargets = []
+        self.target: CloserLookDescriptor | None = None
+        self.targetType: str | None = None
+        self.forbiddenTargets: list[int] = []
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "<Dwarf Fighter, coming out of the Broken Drum>"
 
-    def main(self):
+    def main(self) -> None:
         # save age death and reproduce
         if self.energy() > self.minimumEnergyToReproduce:
             if self.Reproduce():

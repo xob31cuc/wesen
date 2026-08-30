@@ -1,16 +1,25 @@
 """The world in which Wesen takes place"""
 
+from __future__ import annotations
+
 import json
 from bisect import bisect_left, insort
+from collections.abc import Callable
 from copy import deepcopy
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from .defaults import DEFAULT_GAME_STATE_FILE
-from .objects.base import WorldObject
+from .objects.base import WorldObject, WorldObjectContext
 from .objects.food import Food
 from .objects.wesen import RuleException, Wesen
 from .replay.events import object_state
+
+if TYPE_CHECKING:
+    from Wesen.objects.food import Food
+    from Wesen.objects.wesen import Wesen
+    from Wesen.replay.recorder import ReplayRecorder
 
 
 class World:
@@ -23,15 +32,16 @@ class World:
 
     def __init__(
         self,
-        infoAllWorld=None,
-        createObjects=True,
-        callbacks=None,
-        load_sources=True,
-    ):
+        infoAllWorld: dict[str, Any] | None = None,
+        createObjects: bool = True,
+        callbacks: dict[str, Callable[..., Any]] | None = None,
+        load_sources: bool = True,
+    ) -> None:
         """infoAllWorld is a dictionary of dictionaries"""
         self.callbacks = callbacks or {}
         self.load_sources = load_sources
-        self.recorder = None
+        self.recorder: ReplayRecorder | None = None
+        self.stats: dict[str, dict[str, int]]
         if infoAllWorld is not None:
             self.setInfoAllWorld(infoAllWorld)
             if createObjects:
@@ -41,7 +51,7 @@ class World:
             else:
                 self.initStats()
 
-    def setInfoAllWorld(self, infoAllWorld):
+    def setInfoAllWorld(self, infoAllWorld: dict[str, Any]) -> None:
         """sets the infoAllWorld and initializes member variables"""
         # copy everything that will be modified
         self.infoAllWorld = infoAllWorld.copy()
@@ -55,7 +65,7 @@ class World:
         length = infoAllWorld["world"]["length"]
         self.map = np.empty((length, length), dtype=object)
         self.map.flat[:] = [{} for _ in range(length**2)]
-        self._occupied_y: list = [[] for _ in range(length)]
+        self._occupied_y: list[list[int]] = [[] for _ in range(length)]
         # is initialized depending on sources in initStats()
         self.infoAllWorld["world"].update(
             {
@@ -74,7 +84,7 @@ class World:
             self.infoAllWorld["wesen"]["sources"] = sources
         sources.sort()
 
-    def setCallbacks(self, callbacks):
+    def setCallbacks(self, callbacks: dict[str, Callable[..., Any]]) -> None:
         """used by UI to manipulate the world
         >>> callbacks = dict.fromkeys(["DeleteObject", "AddObject", "UpdatePos"])
         >>> set(callbacks) == {"DeleteObject", "AddObject", "UpdatePos"}
@@ -82,13 +92,13 @@ class World:
         """
         self.callbacks = callbacks
 
-    def setRecorder(self, recorder):
+    def setRecorder(self, recorder: ReplayRecorder) -> None:
         """Attach a replay recorder to future simulation changes."""
         self.recorder = recorder
         for obj in self.objects.values():
             obj.recorder = recorder
 
-    def createDefaultObjects(self):
+    def createDefaultObjects(self) -> None:
         """creates all objects (wesen and food) as specified by self.infoAllWorld"""
         self.objects = {}
         for entry in self.infoAllWorld["wesen"]["sources"]:
@@ -99,7 +109,7 @@ class World:
         for _ in range(self.infoAllWorld["food"]["count"]):
             self.AddObject(self.infoAllWorld["food"])
 
-    def initStats(self):
+    def initStats(self) -> None:
         """resets self.stats to count and energy 0 for all object-types"""
         stats = {
             "food": {"count": 0, "energy": 0},
@@ -109,7 +119,7 @@ class World:
             stats[source] = {"count": 0, "energy": 0}
         self.stats = stats
 
-    def DeleteObject(self, objectid):
+    def DeleteObject(self, objectid: int) -> bool:
         """removes an object from the world."""
         obj = self.objects[objectid]
         pos = obj.position
@@ -127,10 +137,12 @@ class World:
                 object_id=objectid,
                 state=state,
             )
-        self.callbacks.get("DeleteObject", lambda _id: None)(objectid)
+        callback = self.callbacks.get("DeleteObject")
+        if callback is not None:
+            callback(objectid)
         return True
 
-    def AddObject(self, infoObject):
+    def AddObject(self, infoObject: dict[str, Any]) -> WorldObject:
         """adds an object to the world."""
         requested_sim_id = infoObject.get("sim_id")
         if requested_sim_id is None:
@@ -144,7 +156,7 @@ class World:
             self.next_sim_id = max(self.next_sim_id, sim_id + 1)
             object_info = infoObject.copy()
             object_info.pop("sim_id", None)
-        infoAllObject = {
+        infoAllObject: WorldObjectContext = {
             "world": self.infoAllWorld["world"],
             "range": self.infoAllWorld["range"],
             "time": self.infoAllWorld["time"],
@@ -177,12 +189,12 @@ class World:
                 object_id=sim_id,
                 state=newObject.persist(),
             )
-        self.callbacks.get("AddObject", lambda _id, obj: None)(
-            sim_id, newObject.getDescriptor()
-        )
+        callback = self.callbacks.get("AddObject")
+        if callback is not None:
+            callback(sim_id, newObject.getDescriptor())
         return newObject
 
-    def UpdatePos(self, _id, oldPos, obj):
+    def UpdatePos(self, _id: int, oldPos: list[int], obj: dict[str, Any]) -> None:
         """updates the map about an objects position"""
         old_cell = self.map[oldPos[0]][oldPos[1]]
         del old_cell[_id]
@@ -201,20 +213,22 @@ class World:
                 object_id=_id,
                 **{"from": oldPos, "to": newPos},
             )
-        self.callbacks.get("UpdatePos", lambda _id, obj: None)(_id, obj)
+        callback = self.callbacks.get("UpdatePos")
+        if callback is not None:
+            callback(_id, obj)
 
-    def getDescriptor(self):
+    def getDescriptor(self) -> list[dict[str, Any]]:
         """returns a list of descriptive information for the GUI"""
         return [o.getDescriptor() for o in self.objects.values()]
 
-    def DumpGameState(self, filename=DEFAULT_GAME_STATE_FILE):
+    def DumpGameState(self, filename: str = DEFAULT_GAME_STATE_FILE) -> None:
         """writes the whole game state to a given filename (as JSON)"""
         # TODO move this to wesend, where it belongs!
         with open(filename, "w") as f:
             jsonDump = self.persistToJSON()
             f.write(jsonDump)
 
-    def persist(self):
+    def persist(self) -> dict[str, Any]:
         """returns a JSON serializable object.
 
         This object contains all information needed to restore the exact same
@@ -240,10 +254,12 @@ class World:
         d["world"].pop("UpdatePos", None)
         return d
 
-    def restore(self, obj):
+    def restore(self, obj: dict[str, Any]) -> None:
         """restores the state of the world represented by obj"""
         for objectid in list(self.objects):
-            self.callbacks.get("DeleteObject", lambda _id: None)(objectid)
+            callback = self.callbacks.get("DeleteObject")
+            if callback is not None:
+                callback(objectid)
         self.objects = {}
         length = self.infoAllWorld["world"]["length"]
         self.map = np.empty((length, length), dtype=object)
@@ -263,14 +279,16 @@ class World:
         else:
             self.initStats()
 
-    def apply_state(self, obj):
+    def apply_state(self, obj: dict[str, Any]) -> None:
         """Replace this world with one complete persisted replay frame."""
         callbacks = self.callbacks
         recorder = self.recorder
         load_sources = self.load_sources
         old_ids = list(self.objects)
         for objectid in old_ids:
-            callbacks.get("DeleteObject", lambda _id: None)(objectid)
+            callback = callbacks.get("DeleteObject")
+            if callback is not None:
+                callback(objectid)
         self.callbacks = {}
         self.setInfoAllWorld(obj)
         self.callbacks = callbacks
@@ -278,19 +296,19 @@ class World:
         self.load_sources = load_sources
         self.restore(obj)
 
-    def persistToJSON(self):
+    def persistToJSON(self) -> str:
         """returns the persistency info as a JSON string"""
         d = self.persist()
         return json.dumps(d)
 
-    def restoreFromJson(self, string):
+    def restoreFromJson(self, string: str) -> None:
         # TODO figure out if restore and restoreFromJson are both needed
         """restores the state of the world from a JSON string"""
         obj = json.loads(string)
         self.setInfoAllWorld(obj)
         self.restore(obj)
 
-    def main(self):
+    def main(self) -> None:
         """runs one turn of Game code (and all objects code, including the AI)"""
         self.turns += 1
         if self.recorder is not None:

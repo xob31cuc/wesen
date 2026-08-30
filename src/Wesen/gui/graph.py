@@ -3,6 +3,11 @@ Graph and _SensorData.
 Graph plots several curves,
 _SensorData plots a single curve."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
 from numpy import array as narray
 from OpenGL.arrays import vbo
 from OpenGL.GL import (
@@ -25,8 +30,14 @@ from OpenGL.GL import (
 from .object import GuiObject
 from .text import TextPrinter
 
+if TYPE_CHECKING:
+    from Wesen.gui.basicgui import BasicGUI
+    from Wesen.world import World
 
-def SENSORFCT_FROMSTATS_ENERGY(world):
+type Sensor = dict[str, Any]
+
+
+def SENSORFCT_FROMSTATS_ENERGY(world: World) -> Callable[[str], int]:
     return lambda x: world.stats[x]["energy"]
 
 
@@ -35,21 +46,27 @@ class Graph(GuiObject):
     See AddSensor().
     Currently, there are some default sensors."""
 
-    def __init__(self, gui, world, sourceList, colorList):
+    def __init__(
+        self,
+        gui: BasicGUI,
+        world: World,
+        sourceList: list[str],
+        colorList: list[list[float]],
+    ) -> None:
         GuiObject.__init__(self, gui)
         self.world = world
         self.shadow = True
         self.maxValue = 20000
         # used to compute y axis scaling
-        self.sensors = []
-        self.history = []
+        self.sensors: list[Sensor] = []
+        self.history: list[_SensorData] = []
         # both sensors and history are set in AddSensor.
         self.printer = TextPrinter()
         self.resolution = 400
         self._AddDefaultSensors()
         self._AddObjectEnergySensors(sourceList, colorList)
 
-    def _AddDefaultSensors(self):
+    def _AddDefaultSensors(self) -> None:
         """adds sensors: (global energy, food energy)"""
         self.AddSensor(
             {
@@ -68,7 +85,9 @@ class Graph(GuiObject):
             }
         )
 
-    def _AddObjectEnergySensors(self, sourceList, colorList):
+    def _AddObjectEnergySensors(
+        self, sourceList: list[str], colorList: list[list[float]]
+    ) -> None:
         """adds a sensor for each source's energy."""
         for wesenSource, color in zip(sourceList, colorList, strict=False):
             self.AddSensor(
@@ -80,11 +99,11 @@ class Graph(GuiObject):
                 }
             )
 
-    def Reshape(self, x, y):
+    def Reshape(self, x: int, y: int) -> None:
         GuiObject.Reshape(self, x, y)
         self.printer.Reshape(x, y)
 
-    def AddSensor(self, newSensor):
+    def AddSensor(self, newSensor: Sensor) -> None:
         """AddSensor(newSensor) should be called only
         during initialization, as it erases history.
         newSensor = {f=lambda world : lambda statskey : int,
@@ -94,7 +113,7 @@ class Graph(GuiObject):
         self.sensors.append(newSensor)
         self.history = [_SensorData(self.resolution) for _ in self.sensors]
 
-    def Step(self):
+    def Step(self) -> None:
         """adds current world.stats as data point to all sensors."""
         for sensorInfo, data in zip(self.sensors, self.history, strict=True):
             data.AddValue(sensorInfo["f"](self.world)(sensorInfo["statskey"]))
@@ -102,7 +121,7 @@ class Graph(GuiObject):
             self.maxValue, max(data.maxValue for data in self.history)
         )
 
-    def DrawPlot(self):
+    def DrawPlot(self) -> None:
         """Plots the curves for all sensors in self.sensors"""
         glPushMatrix()
         # TODO the following is "moving away from frame",
@@ -116,7 +135,7 @@ class Graph(GuiObject):
             data.Draw()
         glPopMatrix()
 
-    def DrawHint(self):
+    def DrawHint(self) -> None:
         """Prints a caption for the plot"""
         p = self.printer
         p.ResetRaster()
@@ -126,7 +145,7 @@ class Graph(GuiObject):
             # we have to call glRasterPos by printing a linebreak:
             p.Print("\n  {}".format(sensorInfo["name"]))
 
-    def Draw(self):
+    def Draw(self) -> None:
         GuiObject.Draw(self)
         self.DrawHint()
         self.DrawPlot()
@@ -138,7 +157,7 @@ class _SensorData:
     It can draw itself via Draw()
     and you can update it via AddValue()"""
 
-    def __init__(self, size):
+    def __init__(self, size: int) -> None:
         self.size = size
         initialBuffer = []
         for x, y in enumerate(range(size)):
@@ -155,7 +174,7 @@ class _SensorData:
         self.buffer_full = False
         self.maxValue = 0
 
-    def AddValue(self, value):
+    def AddValue(self, value: int) -> None:
         """supply one more numerical value"""
         if self.previous_index == self.size - 1 and not (self.buffer_full):
             self.buffer_full = True
@@ -164,7 +183,7 @@ class _SensorData:
         self.vbo.copied = False
         self.maxValue = max(self.maxValue, value)
 
-    def Draw(self):
+    def Draw(self) -> None:
         """draw a curve of all previous data,
         up to a certain point (self.resolution)"""
         self.vbo.bind()

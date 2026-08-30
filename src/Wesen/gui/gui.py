@@ -7,6 +7,11 @@ as this code only adds features on top:
 * world manipulation
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
 from OpenGL.GL import GL_RGB, GL_UNSIGNED_BYTE, glReadPixels
 from OpenGL.GLU import GLubyte
 from OpenGL.GLUT import (
@@ -18,6 +23,9 @@ from OpenGL.GLUT import (
 from PIL import Image
 
 from .basicgui import BasicGUI
+
+if TYPE_CHECKING:
+    from Wesen.world import World
 
 cl_freak = [
     [0.4, 0.2, 0.6],
@@ -36,7 +44,13 @@ class GUI(BasicGUI):
     If you want to use Wesen to do something else than AI tournaments,
     you may be better off subclassing BasicGUI."""
 
-    def __init__(self, infoGUI, GameLoop, world, extraArgs):
+    def __init__(
+        self,
+        infoGUI: dict[str, Any],
+        GameLoop: Callable[[], list[dict[str, Any]]],
+        world: World,
+        extraArgs: str,
+    ) -> None:
         """infoGUI should be a dict,
         GameLoop a method,
         world a World object and
@@ -47,7 +61,7 @@ class GUI(BasicGUI):
             self, infoGUI, GameLoop, world, extraArgs, colorList=cl_freak
         )
 
-    def ModifyFood(self, action):
+    def ModifyFood(self, action: str) -> None:
         """action can be "delete" "add" "increase" "decrease" """
         if action == "delete":  # FIXME broken?
             for o in self.world.objects.values():
@@ -69,14 +83,14 @@ class GUI(BasicGUI):
                 if o.objectType == "food":
                     o.energy -= 10
 
-    def initMenu(self):
+    def initMenu(self) -> None:
         """sets up the popup-menu for right mouse button"""
         self.menu = glutCreateMenu(self.HandleAction)
         glutAddMenuEntry(b"display key bindings", 55)
         glutAddMenuEntry(b"pause   (space)", 100)
         glutAttachMenu(GLUT_RIGHT_BUTTON)
 
-    def HandleAction(self, action):
+    def HandleAction(self, action: int) -> int:
         """handles actions from the popup-menu"""
         if action == 55:
             line = "".join(
@@ -92,7 +106,7 @@ class GUI(BasicGUI):
             raise NotImplementedError(f"unknown action from popup-menu ({action})")
         return 0
 
-    def initKeyBindings(self):
+    def initKeyBindings(self) -> None:
         """sets up all key bindings,
         inheriting some from BasicGUI"""
         BasicGUI.initKeyBindings(self)
@@ -116,18 +130,18 @@ class GUI(BasicGUI):
         self.keyExplanation[self._getKeyRepresentation(102)] = "add food"
         self.keyExplanation[self._getKeyRepresentation(103)] = "decrease food"
 
-    def ToggleMovie(self):
+    def ToggleMovie(self) -> None:
         """Toggle movie mode on/off. In movie mode, each frame is saved to disk."""
         self.movieMode = not self.movieMode
 
-    def HandleMouse(self, button, state, x, y):
+    def HandleMouse(self, button: int, state: int, x: int, y: int) -> None:
         """handles all mouse events as clicks, dragdrops, etc."""
         BasicGUI.HandleMouse(self, button, state, x, y)
         if state == 1:
             image = self.takeScreenshot()
             image.save("screenshot.png")
 
-    def takeScreenshot(self):
+    def takeScreenshot(self) -> Image.Image:
         """takes a screenshot of the map region"""
         width, height = self.windowSize
         buffer = (GLubyte * (3 * width * height))(0)
@@ -141,7 +155,7 @@ class GUI(BasicGUI):
         image = image.resize((800, 800), Image.Resampling.LANCZOS)
         return image
 
-    def RenderScene(self):
+    def RenderScene(self) -> None:
         """draws the actual descriptor"""
         BasicGUI.RenderScene(self)
         if self.movieMode:

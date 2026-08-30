@@ -5,6 +5,8 @@ See also:
  strings.py for explanations used here,
  defaults.py for defaults used here."""
 
+from __future__ import annotations
+
 import os.path
 from configparser import ConfigParser
 
@@ -20,12 +22,12 @@ from .strings import (
 class ConfigEd:
     """ConfigEd(filename) creates a full powered config editor for wesen"""
 
-    def __init__(self, filename):
+    def __init__(self, filename: str) -> None:
         self.configfile = filename
         self.configParser = ConfigParser()
         self.alwaysDefaults = False
 
-    def printConfig(self):
+    def printConfig(self) -> None:
         """prints the configfile to screen"""
         print(f"{self.configfile}:")
         for line in open(self.configfile).readlines():
@@ -33,7 +35,7 @@ class ConfigEd:
             # -1 for \n removal
         print(".")
 
-    def getConfig(self):
+    def getConfig(self) -> dict[str, dict[str, bool | str | int | float]]:
         """getConfig() returns the config dict.
 
         if a section, option or value is not found,
@@ -56,7 +58,12 @@ class ConfigEd:
             self.writeDefaults()
             return self.getConfig()
 
-    def getEntryFromConfigParser(self, section, key, entryType):
+    def getEntryFromConfigParser(
+        self,
+        section: str,
+        key: str,
+        entryType: type[int] | type[str] | type[bool] | type[float],
+    ) -> float | int | bool | str:
         """depending on entryType,
         calls the appropriate getter from self.configParser"""
         value: ConfigValue | None = None
@@ -72,12 +79,12 @@ class ConfigEd:
             value = CONFIG_DEFAULTS[section][key]
         return value
 
-    def writeDefaults(self):
+    def writeDefaults(self) -> None:
         """write config defaults to file."""
         self.alwaysDefaults = True
         self.edit()
 
-    def edit(self):
+    def edit(self) -> None:
         """Interactive config-file editing;
 
         It will ask the user every single option possible,
@@ -106,7 +113,7 @@ class ConfigEd:
         else:
             print(STRING_ERROR_NOTWROTE % self.configfile)
 
-    def setDefInputStandard(self, section, key):
+    def setDefInputStandard(self, section: str, key: str) -> None:
         """fetches explanation from .strings
         and default value from .defaults"""
         # TODO why upper? we should have lower-case here.
@@ -117,7 +124,9 @@ class ConfigEd:
             str(self.def_input(CONFIG_DEFAULTS[section][key], explanationString)),
         )
 
-    def def_input(self, default, msg):
+    def def_input(
+        self, default: str | float | int | bool, msg: str
+    ) -> str | float | int | bool:
         """derived from raw_input,
         def_input(default,prompt) returns a user input or,
         if blank, the specified default.

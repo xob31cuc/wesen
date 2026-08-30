@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 from functools import reduce
 from math import atan2, cos, pi, sin
-from typing import Any, cast
+from typing import Any
 
-from ...defaultwesensource import DefaultWesenSource
+from ...defaultwesensource import CloserLookDescriptor, DefaultWesenSource
 from ...point import getDistInMaxMetric, getShortestTranslation
 from . import helper
 
 
 class WesenSource(DefaultWesenSource):
-    def __init__(self, infoAllSource):
+    def __init__(self, infoAllSource: dict[str, Any]) -> None:
         """Do all initialization stuff."""
         DefaultWesenSource.__init__(self, infoAllSource)
         self.infoAllSource = infoAllSource
@@ -20,9 +22,9 @@ class WesenSource(DefaultWesenSource):
         # self.minimumEnergyToReproduce = (reprFactor * 2 *
         # self.infoWesen["energy"]) / self.infoFood["count"];
         self.minimumEnergyToFight = self.minimumEnergyToReproduce * 0.75
-        self.target = None
-        self.targetType = None
-        self.forbiddenTargets = []
+        self.target: CloserLookDescriptor | None = None
+        self.targetType: str | None = None
+        self.forbiddenTargets: list[int] = []
         self.angle = 0.0
         self.first_move = True
         self.midPoint: list[int] | None = None
@@ -30,13 +32,14 @@ class WesenSource(DefaultWesenSource):
         self.resumeState: Any = self.searchFood
         self.radius = 20
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "<Sorccerer>"
 
-    def continueOnCircle(self):
+    def continueOnCircle(self) -> bool:
         r = self.radius
         delta_angle = 2 * pi / 50
-        mid_point = cast(list[int], self.midPoint)
+        mid_point = self.midPoint
+        assert mid_point is not None
         radius = getShortestTranslation(
             mid_point,
             self.position(),
@@ -53,7 +56,9 @@ class WesenSource(DefaultWesenSource):
         self.MoveToPosition(move_pos)
         return self.position() != oldPos
 
-    def bestFoodInRange(self, foods):
+    def bestFoodInRange(
+        self, foods: list[CloserLookDescriptor]
+    ) -> CloserLookDescriptor | None:
         int(
             (self.time() - self.infoAllSource["time"]["eat"])
             / self.infoAllSource["time"]["move"]
@@ -74,7 +79,7 @@ class WesenSource(DefaultWesenSource):
         else:
             return None
 
-    def searchFood(self):
+    def searchFood(self) -> None:
         foods = [o for o in self.range if o["type"] == "food"]
         if len(foods) > 0:
             self.state = self.protectFood
@@ -83,7 +88,7 @@ class WesenSource(DefaultWesenSource):
             if not helper.ScannerMove(self):
                 self.state = "pass"
 
-    def protectFood(self):
+    def protectFood(self) -> None:
         foods = [o for o in self.range if o["type"] == "food"]
         if len(foods) == 0:
             self.state = self.searchFood
@@ -91,16 +96,17 @@ class WesenSource(DefaultWesenSource):
         if not self.midPoint:
             totalEnergy = sum(map(lambda o: o["energy"], foods)) + 1
             # +1 to avoid divbyzero
-            self.midPoint = reduce(
+            weighted_midpoint = reduce(
                 lambda a, b: [
                     a[i] + float(b["energy"]) / float(totalEnergy) * b["position"][i]
                     for i in range(len(a))
                 ],
                 foods,
-                [0, 0],
+                [0.0, 0.0],
             )
             self.midPoint = [
-                int(c) % self.infoAllSource["world"]["length"] for c in self.midPoint
+                int(c) % self.infoAllSource["world"]["length"]
+                for c in weighted_midpoint
             ]
         # print("midpoint:", self.midPoint);
         if self.energy() > 200:
@@ -112,7 +118,7 @@ class WesenSource(DefaultWesenSource):
         if not self.continueOnCircle():
             self.state = "pass"
 
-    def main(self):
+    def main(self) -> None:
         self.range = self.closerLook()
         self.state = self.resumeState
         while self.state != "pass":

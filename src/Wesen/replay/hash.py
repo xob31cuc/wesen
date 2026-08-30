@@ -1,13 +1,20 @@
 """Stable hashing of replay-relevant simulation state."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 from copy import deepcopy
+from typing import TYPE_CHECKING, Any
 
 from .events import json_value
 
+if TYPE_CHECKING:
+    from Wesen.world import World
 
-def _canonical_state(state):
+
+def _canonical_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Define canonical order for replay-relevant data from a state dictionary."""
     objects = sorted(
         (deepcopy(obj) for obj in state.get("objects", [])),
         key=lambda obj: obj["sim_id"],
@@ -24,7 +31,7 @@ def _canonical_state(state):
     }
 
 
-def state_hash(state):
+def state_hash(state: dict[str, Any]) -> str:
     """Hash a persisted world state without runtime object identities."""
     payload = json.dumps(
         json_value(_canonical_state(state)),
@@ -35,6 +42,6 @@ def state_hash(state):
     return hashlib.sha256(payload).hexdigest()
 
 
-def world_hash(world):
+def world_hash(world: World) -> str:
     """Hash the stable replay-relevant state of ``world``."""
     return state_hash(world.persist())

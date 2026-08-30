@@ -1,17 +1,21 @@
+from __future__ import annotations
+
+from typing import Any
+
 from numpy.random import randint
 
 from ...defaultwesensource import DefaultWesenSource
 
 
 class WesenSource(DefaultWesenSource):
-    def __init__(self, infoAllSource):
+    def __init__(self, infoAllSource: dict[str, Any]) -> None:
         DefaultWesenSource.__init__(self, infoAllSource)
         self.infoAllSource = infoAllSource
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "<Great Rabbit, the Insatiable>"
 
-    def main(self):
+    def main(self) -> None:
         # devour everything in sight
         visible = self.look()
         foods = [o for o in visible if o["type"] == "food"]

@@ -1,23 +1,27 @@
-from ...defaultwesensource import DefaultWesenSource
+from __future__ import annotations
+
+from typing import Any
+
+from ...defaultwesensource import CloserLookDescriptor, DefaultWesenSource
 from . import helper
 
 
 class WesenSource(DefaultWesenSource):
-    def __init__(self, infoAllSource):
+    def __init__(self, infoAllSource: dict[str, Any]) -> None:
         """Do all initialization stuff."""
         DefaultWesenSource.__init__(self, infoAllSource)
         self.minimumEnergyToEat = 0
         self.minimumEnergyToReproduce = 500
         self.minimumEnergyToFight = self.minimumEnergyToReproduce * 0.75
-        self.target = None
-        self.targetType = None
+        self.target: CloserLookDescriptor | None = None
+        self.targetType: str | None = None
         self.lookFunction = helper.lookForFoodTarget
-        self.forbiddenTargets = []
+        self.forbiddenTargets: list[int] = []
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "<Nightwatch protects the city>"
 
-    def main(self):
+    def main(self) -> None:
         """reproduces as soon as an energy limit is reached,
         if it is low on energy,
         it looks for food,

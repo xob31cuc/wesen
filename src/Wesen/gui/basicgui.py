@@ -1,8 +1,11 @@
 """The basic OpenGL GUI code"""
 
+from __future__ import annotations
+
 import sys
 import traceback
-from typing import Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 # TODO Error checking should be a config option.
 import OpenGL
@@ -53,6 +56,9 @@ from .graph import Graph
 from .map import Map
 from .text import Text
 
+if TYPE_CHECKING:
+    from Wesen.world import World
+
 OpenGL.ERROR_CHECKING = False
 # performance-relevant
 
@@ -78,7 +84,14 @@ class BasicGUI:
     There are three components: Map, Graph and Text.
     """
 
-    def __init__(self, infoGUI, GameLoop, world, extraArgs, colorList=cl_default):
+    def __init__(
+        self,
+        infoGUI: dict[str, Any],
+        GameLoop: Callable[[], list[dict[str, Any]]],
+        world: World,
+        extraArgs: str,
+        colorList: list[list[float]] = cl_default,
+    ) -> None:
         """infoGUI should be a dict,
         GameLoop a method,
         world a World object and
@@ -92,7 +105,7 @@ class BasicGUI:
         self.infoGui = infoGUI["gui"]
         self.world = world
         self.windowactive = True
-        self.size = self.infoGui["size"]
+        self.size = int(self.infoGui["size"])
         self.windowSize = [self.size, self.size]
         self.pause = False
         self.init = True
@@ -130,14 +143,14 @@ class BasicGUI:
         self.objects = [self.map, self.text]
         self.menu = None
         self.initMenu()
-        self.keybindings = dict()
-        self.keyExplanation = dict()
+        self.keybindings: dict[bytes | int, Callable[[], Any]] = {}
+        self.keyExplanation: dict[str, str] = {}
         self.initKeyBindings()
         self.mouseFirst = [0, 0]
         self.mouseLast = [0, 0]
         glutMainLoop()
 
-    def _initGL(self, extraArgs):
+    def _initGL(self, extraArgs: str) -> None:
         """initializes OpenGL and creates the Window"""
         glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)
         glutInitWindowSize(self.size, self.size)
@@ -161,7 +174,7 @@ class BasicGUI:
         glEnable(GL_LINE_SMOOTH)
         glLineWidth(1.3)
 
-    def Exit(self):
+    def Exit(self) -> None:
         """Stop the simulation and quit"""
         glFinish()
         self.world.DumpGameState()
@@ -177,11 +190,11 @@ class BasicGUI:
 
             os._exit(0)
 
-    def Pause(self):
+    def Pause(self) -> None:
         """Pause/Unpause the simulation"""
         self.pause = not self.pause
 
-    def SetSpeed(self, amount):
+    def SetSpeed(self, amount: float) -> None:
         """Add amount to the speed, checking whether it is too low or high."""
         self.wait = 1
         self.speed += amount
@@ -190,28 +203,28 @@ class BasicGUI:
         if self.speed > 1:
             self.speed = 1.0
 
-    def SpeedDown(self):
+    def SpeedDown(self) -> None:
         """decrease Speed by 0.05"""
         self.SetSpeed(-0.05)
 
-    def SpeedUp(self):
+    def SpeedUp(self) -> None:
         """increase Speed by 0.05"""
         self.SetSpeed(0.05)
 
-    def initMenu(self):
+    def initMenu(self) -> None:
         """Abstract method, gets called upon init.
         Subclasses could do:
           self.menu = glutCreateMenu(self.HandleAction)
           glutAttachMenu(GLUT_RIGHT_BUTTON)
         """
 
-    def _getKeyRepresentation(self, key):
+    def _getKeyRepresentation(self, key: bytes | int) -> str:
         """takes a character and returns a nice string representation, like
         >>> BasicGUI._getKeyRepresentation(None, 27)
         '<ESC>'
         """
 
-        def specialKeyRepresentation(key):
+        def specialKeyRepresentation(key: int) -> str:
             return (
                 "<ESC>"
                 if key == 27
@@ -236,13 +249,11 @@ class BasicGUI:
                 )
             )
 
-        return (
-            key.decode("ascii")
-            if type(key) is bytes
-            else specialKeyRepresentation(key)
-        )
+        if isinstance(key, bytes):
+            return key.decode("ascii")
+        return specialKeyRepresentation(key)
 
-    def _generateKeyExplanations(self):
+    def _generateKeyExplanations(self) -> None:
         """takes current key bindings and generates hints
         using nice string representations and docstrings"""
         self.keyExplanation = {
@@ -250,7 +261,7 @@ class BasicGUI:
             for key in self.keybindings
         }
 
-    def initKeyBindings(self):
+    def initKeyBindings(self) -> None:
         """sets up the key bindings for the GUI
         and generates some help texts for the keys
         (self.keyExplanation).
@@ -266,28 +277,28 @@ class BasicGUI:
         }
         self._generateKeyExplanations()
 
-    def HandleKeys(self, key, x, y):
+    def HandleKeys(self, key: bytes | int, x: int, y: int) -> None:
         """handle both usual (character) and special (ordinal) keys"""
         # print("key detection: key="+str(key)+" at (x,y)="+str(x)+","+str(y));
         if key in self.keybindings:
             self.keybindings[key]()
 
-    def _win2glCoord(self, x, y):
+    def _win2glCoord(self, x: int, y: int) -> tuple[float, float]:
         """converts window coordinates to OpenGL coordinates"""
         posX = 2.0 * x / self.windowSize[0]
         posY = 2.0 * y / self.windowSize[1]
         return (posX, posY)
 
-    def _win2wesenCoord(self, x, y):
+    def _win2wesenCoord(self, x: int, y: int) -> tuple[int, int]:
         """converts window coordinates (as given by mouse events)
         to Wesen World map coordinates (possibly out of range)"""
-        x, y = self._win2glCoord(x, y)
-        posX = int(x * self.infoWorld["length"])
-        posY = int((1.0 - y) * self.infoWorld["length"]) + 1
+        gl_x, gl_y = self._win2glCoord(x, y)
+        posX = int(gl_x * self.infoWorld["length"])
+        posY = int((1.0 - gl_y) * self.infoWorld["length"]) + 1
         # TODO why +1 ?
         return (posX, posY)
 
-    def HandleMouse(self, button, state, x, y):
+    def HandleMouse(self, button: int, state: int, x: int, y: int) -> None:
         """handles all mouse events as clicks, dragdrops, etc."""
         if state == 0:
             self.mouseFirst = [x, y]
@@ -298,14 +309,14 @@ class BasicGUI:
         if state == 1:
             self.mouseLast = [x, y]
 
-    def Reshape(self, x, y):
+    def Reshape(self, x: int, y: int) -> None:
         """warning: symmetrical x/y reshape not implemented yet"""
         glViewport(0, 0, x, y)
         self.windowSize = [x, y]
         for o in self.objects:
             o.Reshape(x, y)
 
-    def RenderScene(self):
+    def RenderScene(self) -> None:
         """draws the actual descriptor"""
         glClear(GL_COLOR_BUFFER_BIT)
         glMatrixMode(GL_MODELVIEW)
@@ -327,7 +338,7 @@ class BasicGUI:
         glPopMatrix()
         glutSwapBuffers()
 
-    def CalcFps(self):
+    def CalcFps(self) -> None:
         """calculates GUI.fps and GUI.tps (call every frame)"""
         self.frame += 1
         actualtime = glutGet(GLUT_ELAPSED_TIME)
@@ -340,7 +351,7 @@ class BasicGUI:
             self.tps = turnsnow * 1000.0 / timenow
             self.frame = 0
 
-    def Step(self):
+    def Step(self) -> None:
         """Executes one round of the game"""
         if not self.pause:
             return
@@ -353,7 +364,7 @@ class BasicGUI:
             print(traceback.format_exc())
             sys.exit(1)
 
-    def Draw(self):
+    def Draw(self) -> int:
         """actualizes the descriptor by calling his GameLoop and renders it"""
         # TODO find out if the framedropping mechanism is already killed
         # everywhere
@@ -375,5 +386,4 @@ class BasicGUI:
             print("exception:", e)
             print(traceback.format_exc())
             sys.exit(1)
-            return 0
         return 1

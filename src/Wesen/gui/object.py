@@ -1,8 +1,13 @@
 """Each object in the GUI that gets real estate is a GuiObject"""
 
-from typing import TypedDict
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, TypedDict
 
 from OpenGL.GL import glColor3f, glRectf
+
+if TYPE_CHECKING:
+    from Wesen.gui.basicgui import BasicGUI
 
 
 class FrameData(TypedDict):
@@ -17,7 +22,7 @@ class FrameData(TypedDict):
 class GuiObject:
     """A GuiObject maintains a visual frame around it."""
 
-    def __init__(self, gui):
+    def __init__(self, gui: BasicGUI) -> None:
         self.gui = gui
         self.frame: FrameData = {
             "frame": 0.003,  # ???
@@ -28,7 +33,7 @@ class GuiObject:
             "y": 0,
         }
 
-    def _getFrameData(self):
+    def _getFrameData(self) -> FrameData:
         """returns a dict with info about the visual frame"""
         # TODO the whole frame mechanism should be beautified.
         frame = self.frame["frame"]
@@ -43,13 +48,13 @@ class GuiObject:
         self.frame["y"] = y
         return self.frame
 
-    def SetAspect(self, x, y):
+    def SetAspect(self, x: int, y: int) -> None:
         """takes width and height and sets the visual frame aspect.
         This is necessary to let the frame be of same thickness horizontally
         and vertically, even after rescaling."""
         self.frame["aspect"] = x / y
 
-    def _drawframe(self):
+    def _drawframe(self) -> None:
         """Draw a frame around the GuiObject"""
         framedata = self._getFrameData()
         color, plastic, x, y = (
@@ -69,9 +74,9 @@ class GuiObject:
         glRectf(1.0, 0.0, 1.0 - y, 1.0)
         # right
 
-    def Draw(self):
+    def Draw(self) -> None:
         """Each GuiObject has a Draw() method."""
         self._drawframe()
 
-    def Reshape(self, x, y):
+    def Reshape(self, x: int, y: int) -> None:
         """Each GuiObject can handle reshaping events."""

@@ -3,28 +3,31 @@ the sober sailor is a smarter implementation of drunken sailor.
 it searches food instead of only walking randomly.
 """
 
+from __future__ import annotations
+
 from random import choice
+from typing import Any
 
 from ...defaultwesensource import DefaultWesenSource
 
 
 class WesenSource(DefaultWesenSource):
-    def __init__(self, infoAllSource):
+    def __init__(self, infoAllSource: dict[str, Any]) -> None:
         DefaultWesenSource.__init__(self, infoAllSource)
         self.randRange = [-1, 0, 1]
         self.minimalTime = 20
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "<Sober Sailor>"
 
-    def sign(self, x):
+    def sign(self, x: int) -> int:
         if x < 0:
             return -1
         if x > 0:
             return 1
         return 0
 
-    def main(self):
+    def main(self) -> None:
         while self.time() > self.minimalTime:
             lookRange = self.closerLook()
             position = self.position()

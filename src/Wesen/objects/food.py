@@ -1,17 +1,21 @@
 """The Food class, which is present in every simulation."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from numpy.random import random_sample
 
 from ..point import getRandomPositionInRadius
-from .base import WorldObject
+from .base import WorldObject, WorldObjectContext
 
 
 class Food(WorldObject):
-    """unlike wesen, who are programmable and capable of intelligence,
+    """Unlike wesen, who are programmable and capable of intelligence,
     food can only grow every turn and reproduce over distance.
     """
 
-    def __init__(self, infoAllWorld):
+    def __init__(self, infoAllWorld: WorldObjectContext) -> None:
         WorldObject.__init__(self, infoAllWorld)
         self.source = "food"
         self.seedrate = self.infoObject["seedrate"]
@@ -20,17 +24,17 @@ class Food(WorldObject):
         self.maxamount = self.infoObject["maxamount"]
         self.maxage = self.infoObject["maxage"]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<food sim_id={self.sim_id} growrate={self.growrate} "
             f"pos={self.position} energy={self.energy}>"
         )
 
-    def getDescriptor(self):
+    def getDescriptor(self) -> dict[str, Any]:
         """currently doing nothing than returning the WorldObjects getDescriptor."""
         return WorldObject.getDescriptor(self)
 
-    def persist(self):
+    def persist(self) -> dict[str, Any]:
         """returns JSON serializable object with all information
         needed to restore the state of the object"""
         d = WorldObject.persist(self)
@@ -45,7 +49,7 @@ class Food(WorldObject):
         )
         return d
 
-    def restore(self, obj):
+    def restore(self, obj: dict[str, Any]) -> None:
         """restores the state of the food object"""
         WorldObject.restore(self, obj)
         self.seedrate = obj["seedrate"]
@@ -54,18 +58,18 @@ class Food(WorldObject):
         self.maxamount = obj["maxamount"]
         self.maxage = obj["maxage"]
 
-    def getEaten(self):
+    def getEaten(self) -> int:
         """dies and returns previous energy amount."""
-        energy = self.energy
+        energy: int = self.energy
         if not self.dead:
             self.Die()
         return energy
 
-    def Grow(self):
+    def Grow(self) -> None:
         """increment energy by some amount."""
         self.energy += int(random_sample() * 2 * self.growrate)
 
-    def Seed(self):
+    def Seed(self) -> Food:
         """create a new Food instance in seedrange."""
         infoFood = self.infoObject
         infoFood["energy"] = 1
@@ -73,6 +77,7 @@ class Food(WorldObject):
             self.position, self.rangeseed, self.infoWorld["length"]
         )
         newFood = self.AddObject(infoFood)
+        assert isinstance(newFood, Food)
         state_before_merge = newFood.persist() if self.recorder is not None else None
         newFood._eatFoodAtSamePlace()
         if self.recorder is not None and state_before_merge is not None:
@@ -83,12 +88,12 @@ class Food(WorldObject):
             )
         return newFood
 
-    def _AgeCheck(self):
+    def _AgeCheck(self) -> None:
         WorldObject._AgeCheck(self)
         if self.age >= self.infoObject["maxage"]:
             self.Die()
 
-    def _EnergyCheck(self):
+    def _EnergyCheck(self) -> None:
         WorldObject._EnergyCheck(self)
         if self.energy >= self.infoObject["maxamount"]:
             self.energy = self.infoObject["maxamount"]
@@ -98,7 +103,7 @@ class Food(WorldObject):
             # TODO the GUI should be more careful and this raise an Error.
             print("warning: food energy lower than zero detected")
 
-    def _hasTooMuchFoodNearby(self):
+    def _hasTooMuchFoodNearby(self) -> bool:
         """return True as soon as there is a lot of food nearby."""
         for i, _ in enumerate(
             self.getRangeIterator(
@@ -109,7 +114,7 @@ class Food(WorldObject):
                 return True
         return False
 
-    def _eatFoodAtSamePlace(self):
+    def _eatFoodAtSamePlace(self) -> None:
         """Eat Food at the same position whose id differs from this Food's."""
         for obj in [
             # The range iterator allows increasing this radius later.
@@ -121,7 +126,7 @@ class Food(WorldObject):
         ]:
             self.energy += obj.getEaten()
 
-    def main(self):
+    def main(self) -> None:
         """randomly grow or seed, based on growrate and seedrate.
         When too old, die."""
         WorldObject.main(self)

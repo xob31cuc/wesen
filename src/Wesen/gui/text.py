@@ -1,6 +1,10 @@
 """This module contains all methods related to displaying text in the gui,
 such as the Text GuiObject subclass and the TextPrinter class"""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
+
 from OpenGL.GL import (
     GL_COMPILE,
     glCallLists,
@@ -17,28 +21,34 @@ from OpenGL.GLUT import GLUT_BITMAP_8_BY_13, glutBitmapCharacter
 
 from .object import GuiObject
 
+if TYPE_CHECKING:
+    from Wesen.gui.basicgui import BasicGUI
+    from Wesen.world import World
+
 
 class Text(GuiObject):
     """A Text object displays world.stats"""
 
-    def __init__(self, gui, world):
+    def __init__(self, gui: BasicGUI, world: World) -> None:
         GuiObject.__init__(self, gui)
         self.world = world
         self.printer = TextPrinter()
-        self.givenText = None
+        self.givenText: str | None = None
         # TODO replace this mechanism by something else
 
-    def Print(self, line):  # TODO replace this mechanism by something else
+    def Print(
+        self, line: str
+    ) -> None:  # TODO replace this mechanism by something else
         """there's a single place where this line is shown.
         Call Print(line) again and the previous line is removed."""
         self.givenText = line
 
-    def Reshape(self, x, y):
+    def Reshape(self, x: int, y: int) -> None:
         """Corrects content sizes after changing GuiObject size"""
         GuiObject.Reshape(self, x, y)
         self.printer.Reshape(x, y)
 
-    def DrawGameStats(self):
+    def DrawGameStats(self) -> None:
         """Print world.stats"""
         p = self.printer
         statString = "%-20s | %9s | %9s | %14s |\n"
@@ -53,7 +63,7 @@ class Text(GuiObject):
             lines.append(statString % (source, energy, count, perWesen))
         p.Print("".join(lines))
 
-    def DrawEngineStats(self):
+    def DrawEngineStats(self) -> None:
         """Print some information about the game engine,
         such as fps (frames per second), number of turns, etc."""
         p = self.printer
@@ -65,15 +75,13 @@ class Text(GuiObject):
         # p.Print("manual slowdown: %3d percent" %
         # (int(100.0/self.gui.speed)));
 
-    def DrawGivenText(
-        self,
-    ):  # TODO replace this mechanism by something else
+    def DrawGivenText(self) -> None:  # TODO replace this mechanism by something else
         """Draws the last text given previously by Print(line)"""
         if self.givenText is not None:
             self.printer.Print("\n")
             self.printer.Print(self.givenText)
 
-    def Draw(self):
+    def Draw(self) -> None:
         GuiObject.Draw(self)
         self.printer.ResetRaster()
         self.DrawEngineStats()
@@ -85,9 +93,9 @@ class TextPrinter:
     """A printer that uses OpenGL to draw strings.
     Use ResetRaster() and then Print(text)."""
 
-    _fontListBase = None
+    _fontListBase: int | None = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         if TextPrinter._fontListBase is None:
             TextPrinter._fontListBase = self._BuildFontLists()
         self.fontListBase = TextPrinter._fontListBase
@@ -99,26 +107,26 @@ class TextPrinter:
         self.ResetRaster()
 
     @staticmethod
-    def _BuildFontLists():
+    def _BuildFontLists() -> int:
         """Compile the GLUT bitmap font once for batched string drawing."""
         base = glGenLists(256)
         for character in range(256):
             glNewList(base + character, GL_COMPILE)
             glutBitmapCharacter(GLUT_BITMAP_8_BY_13, character)
             glEndList()
-        return base
+        return cast(int, base)
 
-    def ResetRaster(self):
+    def ResetRaster(self) -> None:
         """Call each frame before any Print()"""
         self.rasterPos = self.y
         self.Print("\n")
 
-    def Reshape(self, x, y):
+    def Reshape(self, x: int, y: int) -> None:
         """Gets into good shape again"""
         self.x = x
         self.y = 30 / y  # TODO where does the magic number come from?
 
-    def Print(self, text):
+    def Print(self, text: str) -> None:
         """Print(String text) prints text to the screen"""
         glPushMatrix()
         glTranslatef(0.02, 0.96, 0.0)  # TODO where does the magic number come from?

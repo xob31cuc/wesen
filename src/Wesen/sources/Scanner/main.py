@@ -3,20 +3,24 @@ The scanner is a simple wesen, running over the screen like a scanner,
 eating and reproducing.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 from ...defaultwesensource import DefaultWesenSource
 
 
 class WesenSource(DefaultWesenSource):
-    def __init__(self, infoAllSource):
+    def __init__(self, infoAllSource: dict[str, Any]) -> None:
         """Do all initialization stuff."""
         DefaultWesenSource.__init__(self, infoAllSource)
         self.movecount = 0
         self.reproductionEnergy = 500
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "<Ordinary Scanner>"
 
-    def Scanner(self):
+    def Scanner(self) -> None:
         for o in self.look():
             if o["type"] == "food" and o["position"] == self.position():
                 self.Eat(o["id"])
@@ -27,7 +31,7 @@ class WesenSource(DefaultWesenSource):
             self.Move([1, 0])
             self.movecount += 1
 
-    def main(self):
+    def main(self) -> None:
         while self.time() > self.infoTime["move"]:
             if self.energy() >= self.reproductionEnergy:
                 self.Reproduce()

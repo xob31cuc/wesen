@@ -1,40 +1,45 @@
 """The class for all data and operations a single Wesen has"""
 
+from __future__ import annotations
+
 import importlib
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from functools import wraps
+from typing import Any
 
+from ..defaultwesensource import CloserLookDescriptor, LookDescriptor
 from ..replay.events import object_states
-from .base import WorldObject
+from .base import WorldObject, WorldObjectContext
 
 
 class RuleException(Exception):
     """This exception is thrown whenever a wesen source
     violates the rules of the game."""
 
-    def __init__(self, ruleDescription):
+    def __init__(self, ruleDescription: str) -> None:
         super().__init__(ruleDescription)
 
 
 class _ReplayWesenSource:
     """Inert source state holder used while applying replay snapshots."""
 
-    def __init__(self):
-        self._state = {}
+    def __init__(self) -> None:
+        self._state: dict[str, Any] = {}
 
-    def getDescriptor(self):
+    def getDescriptor(self) -> dict[Any, Any]:
         return {}
 
-    def persist(self):
+    def persist(self) -> dict[Any, Any]:
         return self._state
 
-    def restore(self, state):
+    def restore(self, state: dict[Any, Any]) -> None:
         self._state = deepcopy(state)
 
-    def Receive(self, _message):
+    def Receive(self, _message: Any) -> None:
         return None
 
-    def main(self):
+    def main(self) -> None:
         raise RuntimeError("Wesen source AI must not run during replay")
 
 
@@ -45,7 +50,7 @@ class Wesen(WorldObject):
 
     # initialization
 
-    def __init__(self, infoAllObject):
+    def __init__(self, infoAllObject: WorldObjectContext) -> None:
         """imports the sourcecode of WesenSource and links the capabilities."""
         WorldObject.__init__(self, infoAllObject)
         self.infoTime = infoAllObject["time"]
@@ -71,16 +76,16 @@ class Wesen(WorldObject):
             self.wesenSource = WesenSource(infoAllSource)
         else:
             self.wesenSource = _ReplayWesenSource()
-        self.Receive = None
+        self.Receive: Callable[[Any], Any]
         self.PutInterface(self.wesenSource)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<wesen sim_id={self.sim_id} pos={self.position} "
             f"energy={self.energy} source={str(self.wesenSource)}>"
         )
 
-    def PutInterface(self, source):
+    def PutInterface(self, source: Any) -> None:
         """maps the source functions to the corresponding wesen functions."""
         source.id = self.getId
         source.age = self.getAge
@@ -102,11 +107,13 @@ class Wesen(WorldObject):
         source.Broadcast = self._sourceAction("Broadcast", self.Broadcast)
         self.Receive = source.Receive
 
-    def _sourceAction(self, name, action):
+    def _sourceAction(
+        self, name: str, action: Callable[..., Any]
+    ) -> Callable[..., Any]:
         """Wrap an AI-visible action with command/result instrumentation."""
 
         @wraps(action)
-        def recorded(*args, **kwargs):
+        def recorded(*args: Any, **kwargs: Any) -> Any:
             recorder = self.recorder
             before = (
                 object_states(self.worldObjects) if recorder is not None else None
@@ -115,6 +122,7 @@ class Wesen(WorldObject):
                 result = action(*args, **kwargs)
             except Exception as error:
                 if recorder is not None:
+                    assert before is not None
                     recorder.event(
                         "source_action",
                         turn=self.getTurn(),
@@ -130,6 +138,7 @@ class Wesen(WorldObject):
                     )
                 raise
             if recorder is not None:
+                assert before is not None
                 recorder.event(
                     "source_action",
                     turn=self.getTurn(),
@@ -148,29 +157,29 @@ class Wesen(WorldObject):
 
     # small capabilites, no time cost
 
-    def getTime(self):
+    def getTime(self) -> int:
         """returns time left to do stuff (for free)"""
         return self.time
 
-    def getEnergy(self):
+    def getEnergy(self) -> int:
         """returns energy left (for free)"""
         return self.energy
 
-    def getPosition(self):
+    def getPosition(self) -> list[int]:
         """returns own position (for free)"""
         return self.position
 
-    def getId(self):
+    def getId(self) -> int:
         """returns own object id (for free)"""
         return self.sim_id
 
-    def getAge(self):
+    def getAge(self) -> int:
         """returns own age (for free)"""
         return self.age
 
     # standard capabilities
 
-    def look(self):
+    def look(self) -> list[LookDescriptor]:
         """returns a list of dictionaries with all visible WorldObjects position,
         objecttype and stable simulation id.
         """
@@ -184,7 +193,7 @@ class Wesen(WorldObject):
         else:
             return []
 
-    def closerLook(self):
+    def closerLook(self) -> list[CloserLookDescriptor]:
         """returns look() and a few more information, as
         energy, age, time, source (which equals to friend/foe).
         """
@@ -207,7 +216,7 @@ class Wesen(WorldObject):
         else:
             return []
 
-    def Move(self, direction):
+    def Move(self, direction: Sequence[int | float]) -> bool:
         """moves the wesen into a specified direction,
         returns true if any position change happened."""
         if self.dead:
@@ -248,7 +257,7 @@ class Wesen(WorldObject):
         else:
             return False
 
-    def MoveToPosition(self, newPosition):
+    def MoveToPosition(self, newPosition: Sequence[int | float]) -> bool:
         """moves the wesen to a specified position"""
         newPosition = [int(pc) for pc in newPosition]
         while self.position != newPosition:
@@ -261,7 +270,7 @@ class Wesen(WorldObject):
                 return False
         return True
 
-    def Talk(self, wesenid, message):
+    def Talk(self, wesenid: int, message: Any) -> bool:
         """calls Receive(message) in the wesen specified by wesenid when in range."""
         if self._UseTime("talk"):
             for _oid, o in self.getRangeIterator(
@@ -274,7 +283,7 @@ class Wesen(WorldObject):
                 return True
         return False
 
-    def Eat(self, foodid):
+    def Eat(self, foodid: int) -> bool:
         """Eat the food with stable simulation id ``foodid``."""
         if self.dead:
             return False
@@ -297,7 +306,7 @@ class Wesen(WorldObject):
                 raise RuleException("In order to eat something, it has to be food.")
         return False
 
-    def Reproduce(self):
+    def Reproduce(self) -> int:
         """Create a new Wesen instance with the same source and the specified energy
         which is then subtracted from the reproducing wesen.
         """
@@ -316,7 +325,7 @@ class Wesen(WorldObject):
             return child.sim_id
         return False
 
-    def Attack(self, wesenid):
+    def Attack(self, wesenid: int) -> bool:
         """attacks the wesen specified by wesenid when it's at the same position.
         the energy of the enemy is subtracted from the own energy,
         so the one who had more energy than his enemy can survive.
@@ -336,7 +345,7 @@ class Wesen(WorldObject):
                 return not self._EnergyCheck()
         return False
 
-    def getAttacked(self, energy):
+    def getAttacked(self, energy: int) -> int:
         """called when this Wesen is attacked"""
         previousEnergy = self.energy
         self.energy -= int(energy * 0.75)
@@ -345,7 +354,7 @@ class Wesen(WorldObject):
 
     # advanced capabilites
 
-    def Vomit(self, energy, deathOnLowEnergy=True):
+    def Vomit(self, energy: int, deathOnLowEnergy: bool = True) -> bool:
         """turns the given energy into strange food
         (other growing and seeding behaviour).
         the energy is subtracted from the wesen"""
@@ -372,7 +381,7 @@ class Wesen(WorldObject):
                 return True
         return False
 
-    def Donate(self, energy, wesenid):
+    def Donate(self, energy: int, wesenid: int) -> bool:
         """transfer energy from this wesen to another specified by wesenid"""
         if self.dead:
             return False
@@ -388,7 +397,7 @@ class Wesen(WorldObject):
                     return True
         return False
 
-    def Broadcast(self, message):
+    def Broadcast(self, message: Any) -> bool:
         """calls Talk(message) with all wesen in range"""
         if self.dead:
             return False
@@ -401,14 +410,14 @@ class Wesen(WorldObject):
             return True
         return False
 
-    def Die(self):
+    def Die(self) -> None:
         if self.energy:
             self.Vomit(self.energy, deathOnLowEnergy=False)
         WorldObject.Die(self)
 
     # general methods
 
-    def getDescriptor(self):
+    def getDescriptor(self) -> dict[str, Any]:
         """returns a dictionary
         with descriptive information about the wesen for the GUI"""
         descriptor = {
@@ -418,7 +427,7 @@ class Wesen(WorldObject):
         descriptor.update(WorldObject.getDescriptor(self))
         return descriptor
 
-    def persist(self):
+    def persist(self) -> dict[str, Any]:
         """returns JSON serializable object with all information
         needed to restore the state of the object"""
         d = WorldObject.persist(self)
@@ -430,12 +439,12 @@ class Wesen(WorldObject):
         )
         return d
 
-    def restore(self, obj):
+    def restore(self, obj: dict[str, Any]) -> None:
         """restores the state of the wesen object"""
         WorldObject.restore(self, obj)
         self.wesenSource.restore(obj.get("wesensource", {}))
 
-    def _UseTime(self, function):
+    def _UseTime(self, function: str) -> bool:
         """if the wesen has enough time,
         return true and subtract the time needed for function;
         else return false.
@@ -446,13 +455,13 @@ class Wesen(WorldObject):
             return True
         return False
 
-    def _AgeCheck(self):
+    def _AgeCheck(self) -> None:
         """kills the wesen if it's too old"""
         WorldObject._AgeCheck(self)
         if self.age > self.infoObject["maxage"]:
             self.Die()
 
-    def _EnergyCheck(self):
+    def _EnergyCheck(self) -> bool:
         """kills the Wesen when energy <= 0"""
         WorldObject._EnergyCheck(self)
         if self.energy <= 0:
@@ -460,7 +469,7 @@ class Wesen(WorldObject):
             return True
         return False
 
-    def main(self):
+    def main(self) -> None:
         """runs one turn of wesen code and it's AI code"""
         WorldObject.main(self)
         if not self.dead:

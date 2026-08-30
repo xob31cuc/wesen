@@ -1,11 +1,19 @@
 """Snapshot replay reader and verifier."""
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from .hash import world_hash
 from .recorder import SCHEMA_VERSION
+
+if TYPE_CHECKING:
+    from pathlib import PosixPath
+
+    from Wesen.world import World
 
 
 class ReplayError(Exception):
@@ -25,7 +33,7 @@ class VerificationResult:
 class Replayer:
     """Read a replay file and apply its recorded snapshots one by one."""
 
-    def __init__(self, path):
+    def __init__(self, path: PosixPath | str) -> None:
         self.path = Path(path)
         self.events = self._read_events()
         self.header = self.events[0]
@@ -51,7 +59,8 @@ class Replayer:
         }
         self.index = 0
 
-    def _read_events(self):
+    def _read_events(self) -> list[dict[str, Any]]:
+        """Read and validate events from the replay file at self.path."""
         events = []
         try:
             with self.path.open(encoding="utf-8") as replay_file:
@@ -83,7 +92,7 @@ class Replayer:
             raise ReplayError("replay events do not share a supported schema")
         return events
 
-    def create_world(self):
+    def create_world(self) -> World:
         """Restore the initial frame using inert source placeholders."""
         from ..world import World
 
@@ -92,10 +101,11 @@ class Replayer:
         world.restore(state)
         return world
 
-    def reset(self):
+    def reset(self) -> None:
+        """Reset Replayer to verify next recorded replay"""
         self.index = 0
 
-    def step(self, world):
+    def step(self, world: World) -> bool:
         """Apply the next recorded frame, or return ``False`` at EOF."""
         if self.index >= len(self.frames):
             return False
@@ -106,7 +116,7 @@ class Replayer:
         self.index += 1
         return True
 
-    def verify(self):
+    def verify(self) -> VerificationResult:
         """Apply every frame and return the first hash mismatch, if any."""
         self.reset()
         world = self.create_world()

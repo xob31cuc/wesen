@@ -1,8 +1,35 @@
 """model and controller for single objects in the simulation"""
 
+from __future__ import annotations
+
 from bisect import bisect_left, bisect_right
+from collections.abc import Callable, Iterator
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    NotRequired,
+    TypedDict,
+)
 
 from ..point import getRandomPosition
+
+if TYPE_CHECKING:
+    from Wesen.replay.recorder import ReplayRecorder
+
+
+class WorldObjectContext(TypedDict):
+    """Dependencies and configuration supplied by ``World.AddObject``."""
+
+    world: dict[str, Any]
+    range: dict[str, Any]
+    time: dict[str, Any]
+    food: dict[str, Any]
+    object: dict[str, Any]
+    sim_id: int
+    load_source: NotRequired[bool]
+    recorder: NotRequired[ReplayRecorder | None]
+    get_turn: NotRequired[Callable[[], int]]
+    occupied_y: list[list[int]]
 
 
 class WorldObject:
@@ -10,7 +37,27 @@ class WorldObject:
     as Wesen, Food and maybe some day something else.
     """
 
-    def __init__(self, infoAllObject):
+    infoWorld: dict[str, Any]
+    infoObject: dict[str, Any]
+    infoRange: dict[str, Any]
+    sim_id: int
+    recorder: ReplayRecorder | None
+    getTurn: Callable[[], int]
+    objectType: str
+    energy: int
+    DeleteObject: Callable[[int], bool]
+    AddObject: Callable[[dict[str, Any]], WorldObject]
+    worldObjects: dict[int, Any]
+    map: Any
+    occupiedY: list[list[int]]
+    UpdatePos: Callable[[int, list[int], dict[str, Any]], None]
+    age: int
+    time: int
+    source: str
+    dead: bool
+    position: list[int]
+
+    def __init__(self, infoAllObject: WorldObjectContext) -> None:
         # self.infoAllObject = infoAllObject;
         self.infoWorld = infoAllObject["world"]
         self.infoObject = infoAllObject["object"]
@@ -34,13 +81,15 @@ class WorldObject:
             "position", getRandomPosition(self.infoWorld["length"])
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<worldobject sim_id={self.sim_id} "
             f"pos={self.position} energy={self.energy}>"
         )
 
-    def getRangeIterator(self, radius, condition):
+    def getRangeIterator(
+        self, radius: int, condition: Callable[[Any], bool] | None
+    ) -> Iterator[tuple[int, Any]]:
         """returns an iterator of pairs (id, object)
         with all objects from objectIterator in radius
         that match the condition.
@@ -78,12 +127,12 @@ class WorldObject:
                         if condition(obj):
                             yield object_id, obj
 
-    def Die(self):
+    def Die(self) -> None:
         """deletes WorldObject instance from world."""
         self.dead = True
         self.DeleteObject(self.sim_id)
 
-    def getDescriptor(self):
+    def getDescriptor(self) -> dict[str, Any]:
         """return descriptive data for the gui,
         included by the world in World.getDescriptor.
         """
@@ -96,7 +145,7 @@ class WorldObject:
             "type": self.objectType,
         }
 
-    def persist(self):
+    def persist(self) -> dict[str, Any]:
         """returns JSON serializable object with all information
         needed to restore the state of the object"""
         return {
@@ -109,7 +158,7 @@ class WorldObject:
             "time": self.time,
         }
 
-    def restore(self, obj):
+    def restore(self, obj: dict[str, Any]) -> None:
         """restores state of this objects from obj"""
         # Old savegames predate stable simulation IDs. In that case AddObject
         # has already assigned the replacement ID used by this restored world.
@@ -119,15 +168,16 @@ class WorldObject:
         self.position = obj["position"]
         self.time = obj["time"]
 
-    def _AgeCheck(self):
+    def _AgeCheck(self) -> None:
         """virtual function, look in wesen or food"""
         assert not self.dead
 
-    def _EnergyCheck(self):
+    def _EnergyCheck(self) -> bool | None:
         """virtual function, look in wesen or food"""
         assert not self.dead
+        return None
 
-    def main(self):
+    def main(self) -> None:
         """run one turn of object code"""
         if not self.dead:
             self._EnergyCheck()

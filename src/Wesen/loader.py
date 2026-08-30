@@ -3,11 +3,15 @@ and interprets command-line arguments.
 It makes sure that the configured wesen sources exist.
 It then runs a Wesend instance."""
 
+from __future__ import annotations
+
 import importlib
 import sys
 from argparse import Action, ArgumentParser
+from collections.abc import Sequence
 from os import mkdir
 from os.path import exists, expanduser, join
+from typing import TYPE_CHECKING, Any
 
 from .configed import ConfigEd
 from .defaults import DEFAULT_CONFIGFILE
@@ -24,8 +28,11 @@ from .strings import (
 )
 from .wesend import Wesend
 
+if TYPE_CHECKING:
+    from argparse import Namespace
 
-def Loader(run_immediately=True):
+
+def Loader(run_immediately: bool = True) -> Wesend | None:
     """Calling a Loader object will start a Wesen simulation,
     if the found configuration allows it.
 
@@ -50,7 +57,7 @@ def Loader(run_immediately=True):
         configEd.edit()
     if parsedArgs.invoke_printconfig:
         configEd.printConfig()
-    config = configEd.getConfig()
+    config: dict[str, Any] = configEd.getConfig()
     if "_config" in parsedArgs:
         for section, sectionDict in parsedArgs._config.items():
             config[section].update(sectionDict)
@@ -74,7 +81,7 @@ def Loader(run_immediately=True):
     return wesend
 
 
-def _enableCustomSourcesFolder():
+def _enableCustomSourcesFolder() -> None:
     """Appends to the path a folder where the user can store custom AI code."""
     configroot = join(expanduser("~"), ".wesen")
     sourcefolder = join(configroot, "sources")
@@ -85,7 +92,7 @@ def _enableCustomSourcesFolder():
     sys.path.append(sourcefolder)
 
 
-def _parseArgs():
+def _parseArgs() -> tuple[Namespace, list[Any]]:
     """returns the result of an ArgumentParser.parse_known_args call"""
     # HINT: If you consider adding an option,
     #      please consider adding a config file option first.
@@ -162,7 +169,9 @@ def _parseArgs():
     return parser.parse_known_args()
 
 
-def _addOverwriteBool(parser, argName, section, key):
+def _addOverwriteBool(
+    parser: ArgumentParser, argName: str, section: str, key: str
+) -> None:
     """for convenience, adds a mutually exclusive group
     with --enable and --disable argName, to modify [section] key"""
     group = parser.add_mutually_exclusive_group()
@@ -182,7 +191,7 @@ def _addOverwriteBool(parser, argName, section, key):
     )
 
 
-def _checkSourcesAvailability(sourcesList):
+def _checkSourcesAvailability(sourcesList: str) -> None:
     """imports all sources listed in sourcesList.
     Upon ImportError, prints a polite message and kills the process."""
     sources = sourcesList.split(",")
@@ -208,7 +217,9 @@ class _OverwriteConfigAction(Action):
 
     # TODO change name _config to sth else, as its not a protected member
 
-    def __init__(self, option_strings, dest, section, nargs=1):
+    def __init__(
+        self, option_strings: list[str], dest: str, section: str, nargs: int = 1
+    ) -> None:
         helpMessage = STRING_USAGE_OVERWRITE % (section, dest)
         super().__init__(
             option_strings=option_strings,
@@ -221,15 +232,24 @@ class _OverwriteConfigAction(Action):
         )
         self.section = section
 
-    def __call__(self, parser, namespace, values, option_string=None):
-        if len(values) != 1:
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        if values is None:
+            raise ValueError("missing value for config option to overwrite")
+        normalized = values
+        if len(normalized) != 1:
             raise ValueError(
                 "wrong number of values for config option to overwrite: [",
                 self.section,
                 "]",
                 self.dest,
                 "=",
-                ",".join(values),
+                ",".join(str(value) for value in normalized),
             )
         else:
             # print("Overwritten config option: [",
@@ -240,13 +260,19 @@ class _OverwriteConfigAction(Action):
                 namespace._config = {}
             if self.section not in namespace._config.keys():
                 namespace._config[self.section] = {}
-            namespace._config[self.section][self.dest] = values[0]
+            namespace._config[self.section][self.dest] = normalized[0]
 
 
 class _OverwriteConfigActionBool(_OverwriteConfigAction):
     """For convenience, storing True/False as specified"""
 
-    def __init__(self, option_strings, dest, section, storeValue=None):
+    def __init__(
+        self,
+        option_strings: list[str],
+        dest: str,
+        section: str,
+        storeValue: bool | None = None,
+    ) -> None:
         super().__init__(
             option_strings=option_strings,
             dest=dest,
@@ -255,7 +281,13 @@ class _OverwriteConfigActionBool(_OverwriteConfigAction):
         )
         self.storeValue = storeValue
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
         if self.storeValue is not None:
             values = [self.storeValue]
-        super().__call__(parser, namespace, values)
+        super().__call__(parser, namespace, values, option_string)

@@ -111,17 +111,13 @@ table_format = "long"
 # ---------------------------------------------------------------------------
 [tool.mypy]
 files = [ "src" ]
-# Check compatibility with the *oldest* supported Python version.
+# Check compatibility with the oldest supported Python version.
 python_version = "3.12"
-# Still type-check function bodies even when the function does not yet have
-# complete annotations.
-check_untyped_defs = true
-warn_unused_ignores = true
-strict = false
+# Useful check not included in strict mode.
+warn_unreachable = true
+strict = true
 # Type-check validators used in Deal contracts.
 plugins = [ "deal.mypy" ]
-warn_unused_configs = true
-show_error_codes = true
 [[tool.mypy.overrides]]
 module = "OpenGL.*"
 ignore_missing_imports = true
