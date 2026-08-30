@@ -155,6 +155,7 @@ ignore_unused = [
   "pytest-gremlins",
   "pytest-xdist",
   "ruff",
+  "types-pyyaml",
 ]
 [tool.fawltydeps.custom_mapping]
 pillow = [ "PIL" ]
