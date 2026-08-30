@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 
 class FrameData(TypedDict):
+    """Visual dimensions and colors for a GUI object's frame."""
+
     frame: float
     color: list[float]
     plastic: float
@@ -23,6 +25,7 @@ class GuiObject:
     """A GuiObject maintains a visual frame around it."""
 
     def __init__(self, gui: BasicGUI) -> None:
+        """Initialize a GUI object with its owner and default frame style."""
         self.gui = gui
         self.frame: FrameData = {
             "frame": 0.003,  # ???

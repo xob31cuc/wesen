@@ -47,6 +47,7 @@ class Map(GuiObject):
         sourceList: list[str],
         colorList: list[list[float]],
     ) -> None:
+        """Initialize map geometry and source-to-color mappings."""
         GuiObject.__init__(self, gui)
         self.worldLength = int(infoWorld["length"])
         self.colorDescriptor = {

@@ -38,6 +38,7 @@ type Sensor = dict[str, Any]
 
 
 def SENSORFCT_FROMSTATS_ENERGY(world: World) -> Callable[[str], int]:
+    """Build a sensor that reads energy for a statistics category."""
     return lambda x: world.stats[x]["energy"]
 
 
@@ -53,6 +54,7 @@ class Graph(GuiObject):
         sourceList: list[str],
         colorList: list[list[float]],
     ) -> None:
+        """Initialize graph sensors for global, food, and source energy."""
         GuiObject.__init__(self, gui)
         self.world = world
         self.shadow = True
@@ -100,6 +102,7 @@ class Graph(GuiObject):
             )
 
     def Reshape(self, x: int, y: int) -> None:
+        """Update graph and text layout for a new viewport size."""
         GuiObject.Reshape(self, x, y)
         self.printer.Reshape(x, y)
 
@@ -146,6 +149,7 @@ class Graph(GuiObject):
             p.Print("\n  {}".format(sensorInfo["name"]))
 
     def Draw(self) -> None:
+        """Draw the graph frame, legend, and sensor curves."""
         GuiObject.Draw(self)
         self.DrawHint()
         self.DrawPlot()
@@ -158,6 +162,7 @@ class _SensorData:
     and you can update it via AddValue()"""
 
     def __init__(self, size: int) -> None:
+        """Create a fixed-size circular history buffer and its VBO."""
         self.size = size
         initialBuffer = []
         for x, y in enumerate(range(size)):

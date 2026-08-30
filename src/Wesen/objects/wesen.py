@@ -18,6 +18,7 @@ class RuleException(Exception):
     violates the rules of the game."""
 
     def __init__(self, ruleDescription: str) -> None:
+        """Create an exception describing the violated simulation rule."""
         super().__init__(ruleDescription)
 
 
@@ -25,21 +26,27 @@ class _ReplayWesenSource:
     """Inert source state holder used while applying replay snapshots."""
 
     def __init__(self) -> None:
+        """Initialize an empty persisted AI state."""
         self._state: dict[str, Any] = {}
 
     def getDescriptor(self) -> dict[Any, Any]:
+        """Return the empty UI descriptor used during replay."""
         return {}
 
     def persist(self) -> dict[Any, Any]:
+        """Return the currently restored AI state."""
         return self._state
 
     def restore(self, state: dict[Any, Any]) -> None:
+        """Replace the inert AI state with a deep copy of ``state``."""
         self._state = deepcopy(state)
 
     def Receive(self, _message: Any) -> None:
+        """Ignore messages while replaying recorded state."""
         return None
 
     def main(self) -> None:
+        """Reject attempts to execute AI logic during replay."""
         raise RuntimeError("Wesen source AI must not run during replay")
 
 
@@ -80,6 +87,7 @@ class Wesen(WorldObject):
         self.PutInterface(self.wesenSource)
 
     def __repr__(self) -> str:
+        """Return a compact description of this Wesen's simulation state."""
         return (
             f"<wesen sim_id={self.sim_id} pos={self.position} "
             f"energy={self.energy} source={str(self.wesenSource)}>"
@@ -114,6 +122,7 @@ class Wesen(WorldObject):
 
         @wraps(action)
         def recorded(*args: Any, **kwargs: Any) -> Any:
+            """Execute an action and record its result and state changes."""
             recorder = self.recorder
             before = (
                 object_states(self.worldObjects) if recorder is not None else None
@@ -411,6 +420,7 @@ class Wesen(WorldObject):
         return False
 
     def Die(self) -> None:
+        """Remove Wesen from the World, emit remaining energy via vomit"""
         if self.energy:
             self.Vomit(self.energy, deathOnLowEnergy=False)
         WorldObject.Die(self)

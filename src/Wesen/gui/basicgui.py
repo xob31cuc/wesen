@@ -225,6 +225,7 @@ class BasicGUI:
         """
 
         def specialKeyRepresentation(key: int) -> str:
+            """Return a display label for an integer GLUT key code."""
             return (
                 "<ESC>"
                 if key == 27

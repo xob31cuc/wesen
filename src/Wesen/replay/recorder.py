@@ -40,6 +40,7 @@ class ReplayRecorder:
         metadata: dict[str, str] | None = None,
         run_id: str | None = None,
     ) -> None:
+        """Open ``path`` and initialize metadata for a replay event stream."""
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.run_id = run_id or str(uuid4())
@@ -111,7 +112,9 @@ class ReplayRecorder:
             self.closed = True
 
     def __enter__(self) -> ReplayRecorder:
+        """Return this recorder for use as a context manager."""
         return self
 
     def __exit__(self, *_exc_info: Any) -> None:
+        """Close the replay stream when leaving a context."""
         self.close()

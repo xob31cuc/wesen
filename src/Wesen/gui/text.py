@@ -30,6 +30,7 @@ class Text(GuiObject):
     """A Text object displays world.stats"""
 
     def __init__(self, gui: BasicGUI, world: World) -> None:
+        """Initialize the statistics display for ``world``."""
         GuiObject.__init__(self, gui)
         self.world = world
         self.printer = TextPrinter()
@@ -82,6 +83,7 @@ class Text(GuiObject):
             self.printer.Print(self.givenText)
 
     def Draw(self) -> None:
+        """Draw the frame, engine statistics, and current message."""
         GuiObject.Draw(self)
         self.printer.ResetRaster()
         self.DrawEngineStats()
@@ -96,6 +98,7 @@ class TextPrinter:
     _fontListBase: int | None = None
 
     def __init__(self) -> None:
+        """Initialize raster positioning and shared bitmap-font lists."""
         if TextPrinter._fontListBase is None:
             TextPrinter._fontListBase = self._BuildFontLists()
         self.fontListBase = TextPrinter._fontListBase

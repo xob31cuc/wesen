@@ -23,6 +23,7 @@ class ConfigEd:
     """ConfigEd(filename) creates a full powered config editor for wesen"""
 
     def __init__(self, filename: str) -> None:
+        """Prepare an editor for the configuration file at ``filename``."""
         self.configfile = filename
         self.configParser = ConfigParser()
         self.alwaysDefaults = False

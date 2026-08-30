@@ -220,6 +220,7 @@ class _OverwriteConfigAction(Action):
     def __init__(
         self, option_strings: list[str], dest: str, section: str, nargs: int = 1
     ) -> None:
+        """Configure an argparse action for one configuration override."""
         helpMessage = STRING_USAGE_OVERWRITE % (section, dest)
         super().__init__(
             option_strings=option_strings,
@@ -239,6 +240,7 @@ class _OverwriteConfigAction(Action):
         values: str | Sequence[Any] | None,
         option_string: str | None = None,
     ) -> None:
+        """Store the parsed override under its configuration section."""
         if values is None:
             raise ValueError("missing value for config option to overwrite")
         normalized = values
@@ -273,6 +275,7 @@ class _OverwriteConfigActionBool(_OverwriteConfigAction):
         section: str,
         storeValue: bool | None = None,
     ) -> None:
+        """Configure a flag that stores a predetermined Boolean value."""
         super().__init__(
             option_strings=option_strings,
             dest=dest,
@@ -288,6 +291,7 @@ class _OverwriteConfigActionBool(_OverwriteConfigAction):
         values: str | Sequence[Any] | None,
         option_string: str | None = None,
     ) -> None:
+        """Replace argparse's value with the configured Boolean override."""
         if self.storeValue is not None:
             values = [self.storeValue]
         super().__call__(parser, namespace, values, option_string)

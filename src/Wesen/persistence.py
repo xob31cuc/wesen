@@ -1,3 +1,5 @@
+"""Provide a decorator for serializing and restoring selected attributes."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -38,6 +40,7 @@ def persistence(
     def wrapper(
         this: Any, obj: dict[str, Any] | None = None
     ) -> dict[str, Any] | None:
+        """Serialize fields when called without an object, otherwise restore them."""
         if obj is None:  # setter case
             d: dict[str, Any] = {}
             for entry, getter_func in static.items():

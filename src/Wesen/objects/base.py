@@ -58,6 +58,7 @@ class WorldObject:
     position: list[int]
 
     def __init__(self, infoAllObject: WorldObjectContext) -> None:
+        """Initialize shared object state and callbacks from the world context."""
         # self.infoAllObject = infoAllObject;
         self.infoWorld = infoAllObject["world"]
         self.infoObject = infoAllObject["object"]
@@ -82,6 +83,7 @@ class WorldObject:
         )
 
     def __repr__(self) -> str:
+        """Return a compact description of this object's simulation state."""
         return (
             f"<worldobject sim_id={self.sim_id} "
             f"pos={self.position} energy={self.energy}>"

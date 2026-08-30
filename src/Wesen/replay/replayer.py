@@ -22,6 +22,8 @@ class ReplayError(Exception):
 
 @dataclass(frozen=True)
 class VerificationResult:
+    """Summarize replay verification success or the first mismatch."""
+
     ok: bool
     frames: int
     turn: int | None = None
@@ -34,6 +36,7 @@ class Replayer:
     """Read a replay file and apply its recorded snapshots one by one."""
 
     def __init__(self, path: PosixPath | str) -> None:
+        """Load and validate the replay event stream at ``path``."""
         self.path = Path(path)
         self.events = self._read_events()
         self.header = self.events[0]

@@ -16,6 +16,7 @@ class Food(WorldObject):
     """
 
     def __init__(self, infoAllWorld: WorldObjectContext) -> None:
+        """Initialize food growth, seeding, and lifetime parameters."""
         WorldObject.__init__(self, infoAllWorld)
         self.source = "food"
         self.seedrate = self.infoObject["seedrate"]
@@ -25,6 +26,7 @@ class Food(WorldObject):
         self.maxage = self.infoObject["maxage"]
 
     def __repr__(self) -> str:
+        """Return a compact description of this food object's state."""
         return (
             f"<food sim_id={self.sim_id} growrate={self.growrate} "
             f"pos={self.position} energy={self.energy}>"
@@ -89,11 +91,13 @@ class Food(WorldObject):
         return newFood
 
     def _AgeCheck(self) -> None:
+        """Remove this food when it reaches its configured maximum age."""
         WorldObject._AgeCheck(self)
         if self.age >= self.infoObject["maxage"]:
             self.Die()
 
     def _EnergyCheck(self) -> None:
+        """Clamp this food's energy to its configured valid range."""
         WorldObject._EnergyCheck(self)
         if self.energy >= self.infoObject["maxamount"]:
             self.energy = self.infoObject["maxamount"]
