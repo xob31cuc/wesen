@@ -16,10 +16,13 @@ dependencies = [
   "deal",
   "numpy",
   "pillow>=12.2",
+  "pydantic>=2",
   "pyopengl>=3.1",
+  "pyyaml>=6",
 ]
 [project.scripts]
 wesen = "Wesen.loader:Loader"
+wesen-lab = "Wesen.lab:main"
 
 [dependency-groups]
 dev = [
@@ -44,6 +47,7 @@ dev = [
   "pytest-gremlins",
   "pytest-xdist",
   "ruff>=0.15.13",
+  "types-pyyaml",
 ]
 
 [tool.setuptools.packages.find]

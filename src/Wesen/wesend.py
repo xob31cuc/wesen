@@ -9,12 +9,15 @@ import importlib
 import json
 from os.path import exists
 from pprint import pprint
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .defaults import DEFAULT_GAME_STATE_FILE
 from .replay.recorder import ReplayRecorder
 from .replay.replayer import Replayer
 from .world import World
+
+if TYPE_CHECKING:
+    from .lab import LabInstrumentation
 
 # TODO change the name of this class (it is not a daemon)
 
@@ -26,9 +29,14 @@ class Wesend:
     and, if enabled in the config, a Gui object.
     """
 
-    def __init__(self, config: dict[str, Any]) -> None:
-        """config should be a dictionary (see loader.py),
-        extraArgs are all passed to OpenGL"""
+    def __init__(
+        self,
+        config: dict[str, Any],
+        lab: LabInstrumentation | None = None,
+    ) -> None:
+        """Configure one simulation and optional minimal lab instrumentation."""
+        self.lab = lab
+        self.finished = False
         self.replay_path = config.pop("replay", None)
         self.verify_replay_path = config.pop("verify_replay", None)
         self.record_replay_path = config.pop("record_replay", None)
@@ -77,9 +85,12 @@ class Wesend:
             self.recorder = ReplayRecorder(
                 self.record_replay_path,
                 metadata={"program": "wesen", "mode": "checkpoint_delta"},
+                semantic_sink=self.lab,
             )
             self.world.setRecorder(self.recorder)
             self.recorder.start(self.world)
+        if self.lab is not None:
+            self.lab.record_metrics(self.world)
 
     def start(self, extraArgs: str = "") -> bool | None:
         """starts the simulation (with GUI, if configured)"""
@@ -114,10 +125,17 @@ class Wesend:
 
     def mainLoop(self) -> list[dict[str, Any]]:
         """Advance one normal turn or apply one recorded state transition."""
+        if self.finished:
+            return self.world.getDescriptor()
         if self.replayer is not None:
             self.replay_finished = not self.replayer.step(self.world)
         else:
             self.world.main()
+            if self.lab is not None:
+                self.lab.record_metrics(self.world)
+                self.finished = self.lab.should_stop(self.world)
+                if self.finished:
+                    self.lab.finish(self.world)
         return self.world.getDescriptor()
 
     def main(self) -> bool | None:
@@ -132,6 +150,11 @@ class Wesend:
                 f"replay completed: {len(self.replayer.transitions)} turns "
                 f"through turn {self.world.turns}"
             )
+            return True
+
+        if self.lab is not None:
+            while not self.finished:
+                self.mainLoop()
             return True
 
         while True:
@@ -159,5 +182,9 @@ class Wesend:
 
     def close(self) -> None:
         """Flush and close resources owned by this simulation runner."""
+        if self.lab is not None:
+            self.lab.finish(self.world)
         if self.recorder is not None:
             self.recorder.close()
+        if self.lab is not None:
+            self.lab.close()

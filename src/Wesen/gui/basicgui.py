@@ -176,8 +176,12 @@ class BasicGUI:
 
     def Exit(self) -> None:
         """Stop the simulation and quit"""
-        glFinish()
         self.world.DumpGameState()
+        self.Finish()
+
+    def Finish(self) -> None:
+        """Close resources and leave the GUI after a finite lab run."""
+        glFinish()
         self.wesend.close()
         try:  # this might not work in Windows
             from OpenGL.GLUT import glutLeaveMainLoop
@@ -375,6 +379,8 @@ class BasicGUI:
                 self.descriptor = self.GameLoop()
                 self.CalcFps()
                 self.graph.Step()
+                if self.wesend.finished:
+                    self.Finish()
             else:
                 self.wait += 1
         if self.init:

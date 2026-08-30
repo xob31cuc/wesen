@@ -43,6 +43,8 @@ repos:
           - numpy
           - Pillow>=12.2.0
           - structlog>=25.4.0
+          - pydantic
+          - types-PyYAML
 
   # Dependency checking
   - repo: https://github.com/tweag/FawltyDeps

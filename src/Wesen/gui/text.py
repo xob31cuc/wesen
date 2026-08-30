@@ -3,8 +3,10 @@ such as the Text GuiObject subclass and the TextPrinter class"""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, cast
 
+import deal
 from OpenGL.GL import (
     GL_COMPILE,
     glCallLists,
@@ -26,6 +28,23 @@ if TYPE_CHECKING:
     from Wesen.world import World
 
 
+@deal.pre(lambda probabilities, width=20: width > 0)
+def format_probability_bars(
+    probabilities: Mapping[str, float], width: int = 20
+) -> str:
+    """Format source probabilities as labeled fixed-width ASCII bars."""
+    if not probabilities:
+        return ""
+    label_width = max(len(source) for source in probabilities)
+    lines = ["Win probability:"]
+    for source, probability in sorted(probabilities.items()):
+        bounded = min(1.0, max(0.0, probability))
+        filled = round(bounded * width)
+        bar = "#" * filled + " " * (width - filled)
+        lines.append(f"  {source:<{label_width}} [{bar}] {bounded:4.0%}")
+    return "\n".join(lines) + "\n"
+
+
 class Text(GuiObject):
     """A Text object displays world.stats"""
 
@@ -35,6 +54,8 @@ class Text(GuiObject):
         self.world = world
         self.printer = TextPrinter()
         self.givenText: str | None = None
+        self._probability_snapshot: tuple[tuple[str, float], ...] = ()
+        self._probability_text = ""
         # TODO replace this mechanism by something else
 
     def Print(
@@ -64,6 +85,17 @@ class Text(GuiObject):
             lines.append(statString % (source, energy, count, perWesen))
         p.Print("".join(lines))
 
+    def DrawWinProbabilities(self) -> None:
+        """Draw cached lab probability bars when instrumentation is active."""
+        snapshot = tuple(sorted(self.world.win_probabilities.items()))
+        if snapshot != self._probability_snapshot:
+            self._probability_snapshot = snapshot
+            self._probability_text = format_probability_bars(
+                self.world.win_probabilities
+            )
+        if self._probability_text:
+            self.printer.Print("\n" + self._probability_text)
+
     def DrawEngineStats(self) -> None:
         """Print some information about the game engine,
         such as fps (frames per second), number of turns, etc."""
@@ -88,6 +120,7 @@ class Text(GuiObject):
         self.printer.ResetRaster()
         self.DrawEngineStats()
         self.DrawGameStats()
+        self.DrawWinProbabilities()
         self.DrawGivenText()
 
 

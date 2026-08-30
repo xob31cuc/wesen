@@ -338,15 +338,24 @@ class Wesen(WorldObject):
             ) from error
         if (o.objectType == "wesen") and (o.position == self.position):
             if self._UseTime("attack"):
-                self.energy -= int(o.getAttacked(self.energy) * 0.5)
-                return not self._EnergyCheck()
+                if self.recorder is not None:
+                    self.recorder.semantic_event(
+                        "attack",
+                        turn=self.getTurn(),
+                        attacker_source=self.source,
+                        target_source=o.source,
+                    )
+                self.energy -= int(
+                    o.getAttacked(self.energy, killer_source=self.source) * 0.5
+                )
+                return not self._EnergyCheck(killer_source=o.source)
         return False
 
-    def getAttacked(self, energy: int) -> int:
-        """called when this Wesen is attacked"""
+    def getAttacked(self, energy: int, killer_source: str | None = None) -> int:
+        """Apply attack energy and attribute a resulting death when possible."""
         previousEnergy = self.energy
         self.energy -= int(energy * 0.75)
-        self._EnergyCheck()
+        self._EnergyCheck(killer_source=killer_source)
         return previousEnergy
 
     # advanced capabilites
@@ -407,8 +416,17 @@ class Wesen(WorldObject):
             return True
         return False
 
-    def Die(self) -> None:
-        """Remove Wesen from the World, emit remaining energy via vomit"""
+    def Die(self, killer_source: str | None = None) -> None:
+        """Record a death, emit remaining energy, and remove this Wesen."""
+        if self.dead:
+            return
+        if self.recorder is not None:
+            self.recorder.semantic_event(
+                "death",
+                turn=self.getTurn(),
+                dead_source=self.source,
+                killer_source=killer_source,
+            )
         if self.energy:
             self.Vomit(self.energy, deathOnLowEnergy=False)
         WorldObject.Die(self)
@@ -461,11 +479,11 @@ class Wesen(WorldObject):
         if self.age > self.infoObject["maxage"]:
             self.Die()
 
-    def _EnergyCheck(self) -> bool:
-        """kills the Wesen when energy <= 0"""
+    def _EnergyCheck(self, killer_source: str | None = None) -> bool:
+        """Kill a depleted Wesen and retain known source attribution."""
         WorldObject._EnergyCheck(self)
         if self.energy <= 0:
-            self.Die()
+            self.Die(killer_source=killer_source)
             return True
         return False
 

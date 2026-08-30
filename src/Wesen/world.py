@@ -60,6 +60,7 @@ class World:
         self.callbacks = callbacks or {}
         self.load_sources = load_sources
         self.recorder: ReplayRecorder | None = None
+        self.win_probabilities: dict[str, float] = {}
         self.stats: dict[str, dict[str, int]]
         if infoAllWorld is not None:
             self.setInfoAllWorld(infoAllWorld)
