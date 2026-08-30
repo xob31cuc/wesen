@@ -1,10 +1,9 @@
-"""Stable hashing of replay-relevant simulation state."""
+"""Canonical replay-event chaining and checkpoint-state hashing."""
 
 from __future__ import annotations
 
 import hashlib
 import json
-from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 from .events import json_value
@@ -12,36 +11,42 @@ from .events import json_value
 if TYPE_CHECKING:
     from Wesen.world import World
 
-
-def _canonical_state(state: dict[str, Any]) -> dict[str, Any]:
-    """Define canonical order for replay-relevant data from a state dictionary."""
-    objects = sorted(
-        (deepcopy(obj) for obj in state.get("objects", [])),
-        key=lambda obj: obj["sim_id"],
-    )
-    return {
-        "turn": state.get("turns", 0),
-        "next_sim_id": state.get("next_sim_id", 1),
-        "world": state.get("world", {}),
-        "wesen": state.get("wesen", {}),
-        "food": state.get("food", {}),
-        "range": state.get("range", {}),
-        "time": state.get("time", {}),
-        "objects": objects,
-    }
+GENESIS_HASH = "0" * 64
 
 
-def state_hash(state: dict[str, Any]) -> str:
-    """Hash a persisted world state without runtime object identities."""
-    payload = json.dumps(
-        json_value(_canonical_state(state)),
+def canonical_json(value: Any) -> str:
+    """Serialize a value in the canonical form used by replay integrity hashes."""
+    return json.dumps(
+        json_value(value),
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
-    ).encode("utf-8")
+    )
+
+
+def replay_event_hash(previous_hash: str, event: dict[str, Any]) -> str:
+    """Extend a SHA-256 replay hash chain with one canonical event."""
+    payload = (
+        previous_hash.encode("ascii") + b"\n" + canonical_json(event).encode("utf-8")
+    )
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _canonical_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Return checkpoint state with objects ordered by stable simulation ID."""
+    canonical = dict(state)
+    canonical["objects"] = sorted(
+        state.get("objects", []), key=lambda obj: obj["sim_id"]
+    )
+    return canonical
+
+
+def state_hash(state: dict[str, Any]) -> str:
+    """Hash every persisted field in an independently restorable checkpoint."""
+    payload = canonical_json(_canonical_state(state)).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
 def world_hash(world: World) -> str:
-    """Hash the stable replay-relevant state of ``world``."""
+    """Hash the complete stable persisted state of ``world``."""
     return state_hash(world.persist())

@@ -76,7 +76,7 @@ class Wesend:
         if self.record_replay_path:
             self.recorder = ReplayRecorder(
                 self.record_replay_path,
-                metadata={"program": "wesen", "mode": "snapshot"},
+                metadata={"program": "wesen", "mode": "checkpoint_delta"},
             )
             self.world.setRecorder(self.recorder)
             self.recorder.start(self.world)
@@ -113,7 +113,7 @@ class Wesend:
         print("debug message: ", message)
 
     def mainLoop(self) -> list[dict[str, Any]]:
-        """Advance one normal turn or apply one replay frame."""
+        """Advance one normal turn or apply one recorded state transition."""
         if self.replayer is not None:
             self.replay_finished = not self.replayer.step(self.world)
         else:
@@ -129,7 +129,7 @@ class Wesend:
                 pass
             self.replay_finished = True
             print(
-                f"replay completed: {len(self.replayer.frames)} frames "
+                f"replay completed: {len(self.replayer.transitions)} turns "
                 f"through turn {self.world.turns}"
             )
             return True

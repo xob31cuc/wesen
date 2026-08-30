@@ -8,18 +8,37 @@ from collections.abc import Callable
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
+import deal
 import numpy as np
 
 from .defaults import DEFAULT_GAME_STATE_FILE
 from .objects.base import WorldObject, WorldObjectContext
 from .objects.food import Food
 from .objects.wesen import RuleException, Wesen
-from .replay.events import object_state
 
 if TYPE_CHECKING:
     from Wesen.objects.food import Food
     from Wesen.objects.wesen import Wesen
+    from Wesen.replay.events import ReplayDelta, WorldPatch
     from Wesen.replay.recorder import ReplayRecorder
+
+
+def _delta_is_applicable(world: World, delta: ReplayDelta) -> bool:
+    """Return whether object identity and turn invariants allow ``delta``."""
+    existing_ids = set(world.objects)
+    changed_ids = set(delta.changed)
+    removed_ids = set(delta.removed)
+    created_ids = {int(state["sim_id"]) for state in delta.created}
+    return (
+        delta.previous_turn == world.turns
+        and delta.turn == world.turns + 1
+        and changed_ids <= existing_ids
+        and removed_ids <= existing_ids
+        and not created_ids & existing_ids
+        and not changed_ids & removed_ids
+        and not changed_ids & created_ids
+        and not removed_ids & created_ids
+    )
 
 
 class World:
@@ -56,7 +75,10 @@ class World:
         # copy everything that will be modified
         self.infoAllWorld = infoAllWorld.copy()
         self.infoAllWorld.update(
-            {k: infoAllWorld[k].copy() for k in ("wesen", "world", "food")}
+            {
+                key: infoAllWorld[key].copy()
+                for key in ("wesen", "world", "food", "range", "time")
+            }
         )
         self.objects: dict[int, WorldObject] = {}
         self.turns = infoAllWorld.get("turns", 0)
@@ -123,19 +145,17 @@ class World:
         """removes an object from the world."""
         obj = self.objects[objectid]
         pos = obj.position
-        state = obj.persist() if self.recorder is not None else None
         cell = self.map[pos[0]][pos[1]]
         del cell[objectid]
         if not cell:
             ys = self._occupied_y[pos[0]]
             del ys[bisect_left(ys, pos[1])]
         del self.objects[objectid]
-        if self.recorder is not None and state is not None:
-            self.recorder.event(
+        if self.recorder is not None:
+            self.recorder.semantic_event(
                 "object_deleted",
                 turn=self.turns,
                 object_id=objectid,
-                state=state,
             )
         callback = self.callbacks.get("DeleteObject")
         if callback is not None:
@@ -183,11 +203,10 @@ class World:
             insort(self._occupied_y[x], y)
         cell[sim_id] = newObject
         if self.recorder is not None:
-            self.recorder.event(
+            self.recorder.semantic_event(
                 "object_created",
                 turn=self.turns,
                 object_id=sim_id,
-                state=newObject.persist(),
             )
         callback = self.callbacks.get("AddObject")
         if callback is not None:
@@ -207,7 +226,7 @@ class World:
             insort(self._occupied_y[newPos[0]], newPos[1])
         new_cell[_id] = self.objects[_id]
         if self.recorder is not None:
-            self.recorder.event(
+            self.recorder.semantic_event(
                 "object_moved",
                 turn=self.turns,
                 object_id=_id,
@@ -229,11 +248,18 @@ class World:
             f.write(jsonDump)
 
     def persist(self) -> dict[str, Any]:
-        """returns a JSON serializable object.
+        """Return all state required to restore this world independently.
 
-        This object contains all information needed to restore the exact same
-        state of the world."""
-        d = {
+        Replay deltas use :meth:`persist_world_state` and one object capture
+        instead, avoiding this full-world operation on ordinary turns.
+        """
+        state = self.persist_world_state()
+        state["objects"] = [obj.persist() for obj in self.objects.values()]
+        return state
+
+    def persist_world_state(self) -> dict[str, Any]:
+        """Return replay-relevant world state without persisting any objects."""
+        state: dict[str, Any] = {
             "world": self.infoAllWorld[
                 "world"
             ].copy(),  # need to copy, since we are modifying it
@@ -241,18 +267,17 @@ class World:
             "range": deepcopy(self.infoAllWorld["range"]),
             "time": deepcopy(self.infoAllWorld["time"]),
             "food": deepcopy(self.infoAllWorld["food"]),
-            "objects": [o.persist() for o in self.objects.values()],
             "turns": self.turns,
             "next_sim_id": self.next_sim_id,
             "stats": deepcopy(self.stats),
         }
-        d["world"].pop("Debug", None)
-        d["world"].pop("map", None)
-        d["world"].pop("DeleteObject", None)
-        d["world"].pop("AddObject", None)
-        d["world"].pop("objects", None)
-        d["world"].pop("UpdatePos", None)
-        return d
+        state["world"].pop("Debug", None)
+        state["world"].pop("map", None)
+        state["world"].pop("DeleteObject", None)
+        state["world"].pop("AddObject", None)
+        state["world"].pop("objects", None)
+        state["world"].pop("UpdatePos", None)
+        return state
 
     def restore(self, obj: dict[str, Any]) -> None:
         """restores the state of the world represented by obj"""
@@ -280,7 +305,7 @@ class World:
             self.initStats()
 
     def apply_state(self, obj: dict[str, Any]) -> None:
-        """Replace this world with one complete persisted replay frame."""
+        """Replace this world from one independently restorable checkpoint."""
         callbacks = self.callbacks
         recorder = self.recorder
         load_sources = self.load_sources
@@ -295,6 +320,107 @@ class World:
         self.recorder = recorder
         self.load_sources = load_sources
         self.restore(obj)
+
+    @deal.pre(_delta_is_applicable)
+    def apply_delta(self, delta: ReplayDelta) -> None:
+        """Apply recorded state changes without executing simulation behavior."""
+        self._apply_world_patch(delta.world)
+
+        for sim_id in delta.removed:
+            self.DeleteObject(sim_id)
+        for state in delta.created:
+            new_object = self.AddObject(state)
+            new_object.restore(state)
+        for sim_id, patch in delta.changed.items():
+            obj = self.objects[sim_id]
+            old_position = list(obj.position)
+            state = obj.persist()
+            state.update(deepcopy(patch))
+            obj.restore(state)
+            if obj.position != old_position:
+                self.UpdatePos(sim_id, old_position, obj.getDescriptor())
+
+        self.turns = delta.turn
+
+    def _apply_world_patch(self, patch: WorldPatch) -> None:
+        """Restore changed world fields while retaining runtime references."""
+        allowed = {
+            "world",
+            "wesen",
+            "range",
+            "time",
+            "food",
+            "turns",
+            "next_sim_id",
+            "stats",
+        }
+        unknown = set(patch) - allowed
+        if unknown:
+            raise ValueError(f"unsupported replay world fields: {sorted(unknown)!r}")
+
+        for key in ("wesen", "range", "time", "food"):
+            if key in patch:
+                value = patch[key]
+                if not isinstance(value, dict):
+                    raise ValueError(f"replay world field {key!r} must be an object")
+                target = self.infoAllWorld[key]
+                target.clear()
+                target.update(deepcopy(value))
+
+        if "world" in patch:
+            value = patch["world"]
+            if not isinstance(value, dict):
+                raise ValueError("replay world field 'world' must be an object")
+            old_length = self.infoAllWorld["world"]["length"]
+            runtime = {
+                key: self.infoAllWorld["world"][key]
+                for key in (
+                    "Debug",
+                    "map",
+                    "DeleteObject",
+                    "AddObject",
+                    "objects",
+                    "UpdatePos",
+                )
+                if key in self.infoAllWorld["world"]
+            }
+            self.infoAllWorld["world"].clear()
+            self.infoAllWorld["world"].update(deepcopy(value))
+            self.infoAllWorld["world"].update(runtime)
+            if self.infoAllWorld["world"]["length"] != old_length:
+                self._rebuild_spatial_index()
+
+        if "next_sim_id" in patch:
+            self.next_sim_id = int(patch["next_sim_id"])
+        if "stats" in patch:
+            stats = patch["stats"]
+            if not isinstance(stats, dict):
+                raise ValueError("replay world field 'stats' must be an object")
+            self.stats = deepcopy(stats)
+        if "turns" in patch:
+            self.turns = int(patch["turns"])
+
+    def _rebuild_spatial_index(self) -> None:
+        """Rebuild maps and object references after a recorded world resize."""
+        length = int(self.infoAllWorld["world"]["length"])
+        if length <= 0:
+            raise ValueError("recorded world length must be positive")
+        self.map = np.empty((length, length), dtype=object)
+        self.map.flat[:] = [{} for _ in range(length**2)]
+        self._occupied_y = [[] for _ in range(length)]
+        self.infoAllWorld["world"]["map"] = self.map
+        for sim_id, obj in self.objects.items():
+            x, y = obj.position
+            if not 0 <= x < length or not 0 <= y < length:
+                raise ValueError(
+                    f"object {sim_id} is outside recorded world boundaries"
+                )
+            obj.map = self.map
+            obj.occupiedY = self._occupied_y
+            cell = self.map[x][y]
+            if not cell:
+                insort(self._occupied_y[x], y)
+            cell[sim_id] = obj
 
     def persistToJSON(self) -> str:
         """returns the persistency info as a JSON string"""
@@ -312,7 +438,7 @@ class World:
         """runs one turn of Game code (and all objects code, including the AI)"""
         self.turns += 1
         if self.recorder is not None:
-            self.recorder.event(
+            self.recorder.semantic_event(
                 "turn_start",
                 turn=self.turns,
                 object_count=len(self.objects),
@@ -322,7 +448,6 @@ class World:
         # in the following, the self.objects.copy() is inevitable,
         # as the o.main() might modify self.objects.
         for o in self.objects.copy().values():
-            before = object_state(o) if self.recorder is not None else None
             if o.objectType == "wesen":
                 stats[o.source]["count"] += 1
                 stats[o.source]["energy"] += o.energy
@@ -334,10 +459,6 @@ class World:
                 o.main()
             except RuleException:
                 pass  # TODO: make offending source loose
-            if self.recorder is not None and before is not None:
-                self.recorder.record_state_changes(
-                    {o.sim_id: before}, self.objects, self.turns
-                )
         stats["global"] = {
             "count": len(self.objects),
             "energy": sum(objectType["energy"] for objectType in stats.values()),

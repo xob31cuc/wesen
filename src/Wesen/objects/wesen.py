@@ -9,7 +9,6 @@ from functools import wraps
 from typing import Any
 
 from ..defaultwesensource import CloserLookDescriptor, LookDescriptor
-from ..replay.events import object_states
 from .base import WorldObject, WorldObjectContext
 
 
@@ -122,17 +121,13 @@ class Wesen(WorldObject):
 
         @wraps(action)
         def recorded(*args: Any, **kwargs: Any) -> Any:
-            """Execute an action and record its result and state changes."""
+            """Execute an action and optionally emit separate semantic data."""
             recorder = self.recorder
-            before = (
-                object_states(self.worldObjects) if recorder is not None else None
-            )
             try:
                 result = action(*args, **kwargs)
             except Exception as error:
                 if recorder is not None:
-                    assert before is not None
-                    recorder.event(
+                    recorder.semantic_event(
                         "source_action",
                         turn=self.getTurn(),
                         actor=self.sim_id,
@@ -142,13 +137,9 @@ class Wesen(WorldObject):
                         result=False,
                         error=f"{type(error).__name__}: {error}",
                     )
-                    recorder.record_state_changes(
-                        before, self.worldObjects, self.getTurn()
-                    )
                 raise
             if recorder is not None:
-                assert before is not None
-                recorder.event(
+                recorder.semantic_event(
                     "source_action",
                     turn=self.getTurn(),
                     actor=self.sim_id,
@@ -156,9 +147,6 @@ class Wesen(WorldObject):
                     args=list(args),
                     kwargs=kwargs,
                     result=result,
-                )
-                recorder.record_state_changes(
-                    before, self.worldObjects, self.getTurn()
                 )
             return result
 
@@ -450,8 +438,10 @@ class Wesen(WorldObject):
         return d
 
     def restore(self, obj: dict[str, Any]) -> None:
-        """restores the state of the wesen object"""
+        """Restore dynamic Wesen, ownership, and inert source state."""
         WorldObject.restore(self, obj)
+        if "maxage" in obj:
+            self.infoObject["maxage"] = obj["maxage"]
         self.wesenSource.restore(obj.get("wesensource", {}))
 
     def _UseTime(self, function: str) -> bool:

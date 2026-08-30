@@ -80,14 +80,7 @@ class Food(WorldObject):
         )
         newFood = self.AddObject(infoFood)
         assert isinstance(newFood, Food)
-        state_before_merge = newFood.persist() if self.recorder is not None else None
         newFood._eatFoodAtSamePlace()
-        if self.recorder is not None and state_before_merge is not None:
-            self.recorder.record_state_changes(
-                {newFood.sim_id: state_before_merge},
-                self.worldObjects,
-                self.getTurn(),
-            )
         return newFood
 
     def _AgeCheck(self) -> None:

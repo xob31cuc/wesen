@@ -161,13 +161,14 @@ class WorldObject:
         }
 
     def restore(self, obj: dict[str, Any]) -> None:
-        """restores state of this objects from obj"""
+        """Restore persisted base state while preserving stable identity."""
         # Old savegames predate stable simulation IDs. In that case AddObject
         # has already assigned the replacement ID used by this restored world.
         self.sim_id = obj.get("sim_id", self.sim_id)
         self.age = obj["age"]
         self.energy = obj["energy"]
-        self.position = obj["position"]
+        self.position = list(obj["position"])
+        self.source = obj.get("source", self.source)
         self.time = obj["time"]
 
     def _AgeCheck(self) -> None:

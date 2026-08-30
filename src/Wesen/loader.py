@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from .configed import ConfigEd
 from .defaults import DEFAULT_CONFIGFILE
+from .replay.replayer import ReplayError
 from .strings import (
     STRING_USAGE_CONFIGFILE,
     STRING_USAGE_DEFAULTCONFIG,
@@ -72,7 +73,13 @@ def Loader(run_immediately: bool = True) -> Wesend | None:
         )
     if not (parsedArgs.replay or parsedArgs.verify_replay):
         _checkSourcesAvailability(config["wesen"]["sources"])
-    wesend = Wesend(config)
+    try:
+        wesend = Wesend(config)
+    except ReplayError as error:
+        if run_immediately:
+            print(f"replay error: {error}")
+            raise SystemExit(1) from None
+        raise
     if run_immediately:
         success = wesend.start(" ".join(extraArgs))
         if parsedArgs.verify_replay and not success:
@@ -159,12 +166,12 @@ def _parseArgs() -> tuple[Namespace, list[Any]]:
     replay_group.add_argument(
         "--replay",
         metavar="PATH",
-        help="replay snapshots from a JSON Lines replay",
+        help="apply checkpoints and deltas from a JSON Lines replay",
     )
     replay_group.add_argument(
         "--verify-replay",
         metavar="PATH",
-        help="verify all replay frame hashes without a GUI",
+        help="verify replay integrity and checkpoints without a GUI",
     )
     return parser.parse_known_args()
 
