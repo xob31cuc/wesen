@@ -55,3 +55,6 @@ uv.lock
 # Coverage
 .coverage*
 coverage/
+
+# Generated experiment output
+/runs/

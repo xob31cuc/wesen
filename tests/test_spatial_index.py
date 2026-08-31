@@ -44,7 +44,14 @@ def test_spatial_index_preserves_map_order_through_mutations_and_restore():
     anchor = _add_food(world, (250, 250))
     objects = [
         _add_food(world, position)
-        for position in ((249, 251), (250, 250), (250, 250), (251, 249), (0, 0))
+        for position in (
+            (249, 251),
+            (250, 250),
+            (250, 250),
+            (250, 251),
+            (251, 249),
+            (0, 0),
+        )
     ]
     _assert_index_matches_map(world, anchor)
 

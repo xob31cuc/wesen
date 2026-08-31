@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import json
+import math
 from configparser import ConfigParser
 from copy import deepcopy
 from pathlib import Path
 
+import deal
 import pytest
 from pydantic import ValidationError
 
+import Wesen.lab as lab_module
 from Wesen.defaults import CONFIG_DEFAULTS
-from Wesen.gui.text import format_probability_bars
+from Wesen.gui import text as text_module
 from Wesen.lab import (
     LabInstrumentation,
     SourceMetric,
@@ -66,6 +69,7 @@ name: test-run
 simulation:
   config_file: {config_path.name}
   max_turns: 1
+  random_seed: 7
 win_probability:
   weights:
 {weight_lines}
@@ -106,6 +110,7 @@ def test_experiment_yaml_is_validated_with_required_weights(tmp_path: Path) -> N
 
     assert experiment.name == "test-run"
     assert experiment.simulation.config_file == config_path
+    assert experiment.simulation.random_seed == 7
     assert experiment.win_probability.weights.energy == 1.0
 
     write_experiment(
@@ -150,7 +155,7 @@ def test_existing_simulation_config_rejects_values_that_cannot_start(
 
 
 def test_each_required_metric_affects_estimator_score() -> None:
-    """Give each required metric sole weight and observe its ranking effect."""
+    """Exercise metric ranking, normalization, contracts, and stable softmax."""
     metric_values: dict[str, int | float] = {
         "energy": 10.0,
         "food_distance": 4.0,
@@ -169,6 +174,34 @@ def test_each_required_metric_affects_estimator_score() -> None:
         )
 
         assert probabilities["A"] > probabilities["B"]
+
+    assert lab_module._normalization_values({"A": 3.0, "B": 5.0, "C": 7.0}) == {
+        "A": 0.0,
+        "B": 0.5,
+        "C": 1.0,
+    }
+    weights = {
+        "energy": 1.0,
+        "food_distance": -1.0,
+        "enemy_count": -1.0,
+        "enemy_strength": -1.0,
+    }
+    assert not lab_module._estimator_input_is_valid({}, weights)
+    assert lab_module._probabilities_are_valid({"lost": 0.0, "won": 1.0})
+    assert not lab_module._probabilities_are_valid({})
+    assert not lab_module._probabilities_are_valid({"A": -1.0, "B": 2.0})
+    assert not lab_module._probabilities_are_valid({"A": math.inf, "B": -math.inf})
+    large_weights = {
+        "energy": 1_000.0,
+        "food_distance": 0.0,
+        "enemy_count": 0.0,
+        "enemy_strength": 0.0,
+    }
+    probabilities = lab_module.estimate_win_probabilities(
+        {"high": metric("high", energy=1.0), "low": metric("low")},
+        large_weights,
+    )
+    assert probabilities == {"high": 1.0, "low": 0.0}
 
 
 def test_estimator_is_bounded_normalized_ranked_and_degenerate_safe() -> None:
@@ -380,11 +413,19 @@ def test_summary_reports_results_groups_phase_and_energy_crossings(
 
 
 def test_crossings_and_gui_bar_preparation() -> None:
-    """Handle equality crossings consistently and prepare visible GUI bars."""
+    """Handle crossings and enforce exact GUI bar content and width bounds."""
     assert energy_crossings({0: 1, 1: 2, 2: 3}, {0: 3, 1: 2, 2: 1}) == [1]
-    bars = format_probability_bars({"Dwarf": 0.6, "Rabbit": 0.4}, width=10)
-    assert "Dwarf" in bars and "60%" in bars and "######" in bars
-    assert "Rabbit" in bars and "40%" in bars and "####" in bars
+    bars = text_module.format_probability_bars(
+        {"Dwarf": 0.6, "Rabbit": 0.4}, width=10
+    )
+    assert bars == (
+        "Win probability:\n  Dwarf  [######    ]  60%\n  Rabbit [####      ]  40%\n"
+    )
+    assert text_module.format_probability_bars({"A": 1.0}, width=1) == (
+        "Win probability:\n  A [#] 100%\n"
+    )
+    with pytest.raises(deal.PreContractError):
+        text_module.format_probability_bars({}, width=0)
 
 
 def test_cli_run_invalid_config_and_existing_summary(

@@ -17,6 +17,7 @@ from typing import IO, Literal, TypedDict, cast
 
 import deal
 import yaml
+from numpy.random import seed as set_random_seed
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -89,6 +90,12 @@ class SimulationExperiment(BaseModel):
 
     config_file: FilePath
     max_turns: int = Field(default=10_000, gt=0, strict=True)
+    random_seed: int | None = Field(
+        default=None,
+        ge=0,
+        le=2**32 - 1,
+        strict=True,
+    )
 
 
 class ExperimentConfig(BaseModel):
@@ -452,6 +459,8 @@ def run_experiment(
         max_turns=experiment.simulation.max_turns,
     )
     _enableCustomSourcesFolder()
+    if experiment.simulation.random_seed is not None:
+        set_random_seed(experiment.simulation.random_seed)
     try:
         runner = Wesend(config, lab=instrumentation)
         runner.start()
