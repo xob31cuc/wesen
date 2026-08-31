@@ -1,0 +1,11 @@
+name: invalid-wesen-lab-example
+simulation:
+  config_file: wesen_lab_example.conf
+  max_turns: 250
+  random_seed: 46
+
+win_probability:
+  weights:
+    energy: 1.0
+    food_distance: -0.5
+    enemy_count: -0.4
